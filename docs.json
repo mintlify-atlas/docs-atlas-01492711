@@ -85,7 +85,12 @@
             "pages": [
               "api/task-screen",
               "api/login-screen",
-              "api/add-task-screen"
+              "api/register-screen",
+              "api/add-task-screen",
+              "api/add-team-screen",
+              "api/edit-profile-screen",
+              "api/user-task-screen",
+              "api/notifications-screen"
             ]
           }
         ]
