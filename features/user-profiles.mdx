@@ -1,0 +1,583 @@
+---
+title: 'User Profiles'
+description: 'Learn how to create, update, and manage user profiles with Firebase Storage integration'
+---
+
+## Overview
+
+The user profile system manages user information including names, photos, and personal details. Profiles are stored in Firestore with images managed through Firebase Storage.
+
+## User Profile Data Model
+
+### UserProfile Class
+
+```dart lib/models/user_profile.dart
+class UserProfile {
+  final String uid;
+  final String name;
+  final String surname;
+  final String? photoUrl;
+
+  UserProfile({
+    required this.uid,
+    required this.name,
+    required this.surname,
+    this.photoUrl,
+  });
+
+  // Convert Firestore document to UserProfile
+  factory UserProfile.fromFirestore(Map<String, dynamic> data, String uid) {
+    return UserProfile(
+      uid: uid,
+      name: data['name'] ?? '',
+      surname: data['surname'] ?? '',
+      photoUrl: data['photoUrl'],
+    );
+  }
+
+  // Convert UserProfile to map for Firestore
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'surname': surname,
+      'photoUrl': photoUrl,
+    };
+  }
+}
+```
+
+### Firestore Structure
+
+```
+users/{userId}
+  ├─ name: string
+  ├─ surname: string
+  ├─ email: string (optional)
+  └─ photoUrl: string (optional)
+```
+
+<Note>
+  The `uid` field is the document ID in Firestore, matching the user's Firebase Authentication UID.
+</Note>
+
+## Profile Creation
+
+User profiles are created during the registration process:
+
+### Registration Flow
+
+<Steps>
+  <Step title="User Registration">
+    User creates an account with email and password through Firebase Authentication.
+  </Step>
+  
+  <Step title="Profile Image Upload">
+    Optional: Upload profile photo to Firebase Storage.
+  </Step>
+  
+  <Step title="Save Profile Data">
+    Store user information (name, surname, photo URL) in Firestore.
+  </Step>
+</Steps>
+
+**Code Example from RegisterScreen:**
+
+```dart lib/ui/screens/register_screen.dart
+void _register() async {
+  if (_formKey.currentState?.validate() ?? false) {
+    if (_passwordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Las contraseñas no coinciden')),
+      );
+      return;
+    }
+
+    // Create Firebase user
+    final user = await _authService.registerWithEmailAndPassword(
+      _emailController.text,
+      _passwordController.text,
+    );
+
+    if (user != null) {
+      // Save profile to Firestore
+      await _firestore.collection('users').doc(user.uid).set({
+        'name': _nameController.text,
+        'surname': _surnameController.text,
+        'email': _emailController.text,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuario registrado con éxito')),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const TaskScreen()),
+        );
+      }
+    }
+  }
+}
+```
+
+## Profile Photos with Firebase Storage
+
+### Image Upload Process
+
+Profile photos are stored in Firebase Storage with user-specific paths:
+
+```dart lib/services/auth_service.dart
+Future<void> saveUserProfile(
+  String uid, 
+  String name, 
+  String surname, 
+  File? profileImage
+) async {
+  try {
+    String? photoUrl;
+    if (profileImage != null) {
+      // Upload image to Firebase Storage
+      final storageRef = _storage.ref().child('profileImages/$uid.jpg');
+      await storageRef.putFile(profileImage);
+      photoUrl = await storageRef.getDownloadURL();
+    }
+
+    // Save profile data to Firestore
+    await _firestore.collection('users').doc(uid).set({
+      'name': name,
+      'surname': surname,
+      'photoUrl': photoUrl,
+    });
+    _logger.i('Perfil guardado con éxito');
+  } catch (e) {
+    _logger.e('Error al guardar el perfil del usuario: $e');
+  }
+}
+```
+
+### Storage Structure
+
+```
+Firebase Storage:
+  profileImages/
+    ├─ {userId1}.jpg
+    ├─ {userId2}.jpg
+    └─ {userId3}.jpg
+
+profile_images/
+    ├─ {userId1}
+    ├─ {userId2}
+    └─ {userId3}
+```
+
+<Note>
+  Profile images are stored with the user's UID as the filename, making it easy to retrieve and update user-specific images.
+</Note>
+
+### Image Picker Implementation
+
+```dart lib/ui/screens/edit_profile_screen.dart
+Future<void> _pickImage() async {
+  final picker = ImagePicker();
+  final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+  if (pickedFile != null) {
+    setState(() {
+      _profileImage = File(pickedFile.path);
+    });
+  }
+}
+```
+
+### Displaying Profile Images
+
+```dart lib/ui/screens/edit_profile_screen.dart
+Widget _buildProfileImage() {
+  if (_profileImage != null) {
+    return Image.file(_profileImage!, fit: BoxFit.cover);
+  } else if (_photoUrl != null) {
+    return Image.network(_photoUrl!, fit: BoxFit.cover);
+  } else {
+    return const Icon(Icons.camera_alt, size: 50, color: Colors.grey);
+  }
+}
+```
+
+## Updating Profile Information
+
+### Edit Profile Screen
+
+Users can update their profile information through the EditProfileScreen:
+
+```dart lib/ui/screens/edit_profile_screen.dart
+void _updateProfile() async {
+  User? user = _auth.currentUser;
+  if (user != null) {
+    try {
+      // Reauthenticate if password is provided
+      if (_passwordController.text.isNotEmpty) {
+        final credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: _passwordController.text,
+        );
+        await user.reauthenticateWithCredential(credential);
+      }
+
+      // Update profile image
+      if (_profileImage != null) {
+        final ref = _storage.ref().child('profile_images/${user.uid}');
+        await ref.putFile(_profileImage!);
+        _photoUrl = await ref.getDownloadURL();
+        
+        await _firestore.collection('users').doc(user.uid).update({
+          'photoUrl': _photoUrl,
+        });
+      }
+
+      // Update password
+      if (_passwordController.text.isNotEmpty) {
+        await user.updatePassword(_passwordController.text);
+      }
+
+      // Update email
+      if (_emailController.text.isNotEmpty && _emailController.text != user.email) {
+        await user.verifyBeforeUpdateEmail(_emailController.text);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Se ha enviado un correo de verificación.')
+          ),
+        );
+      }
+
+      // Update name and surname
+      await _firestore.collection('users').doc(user.uid).update({
+        'name': _nameController.text,
+        'surname': _surnameController.text,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Perfil actualizado con éxito')),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      logger.e('Error al actualizar el perfil: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al actualizar el perfil')),
+        );
+      }
+    }
+  }
+}
+```
+
+### Profile Update UI
+
+```dart lib/ui/screens/edit_profile_screen.dart
+Widget _buildTextField({
+  required TextEditingController controller,
+  required String label,
+  bool isPassword = false,
+}) {
+  return TextField(
+    controller: controller,
+    obscureText: isPassword,
+    decoration: InputDecoration(
+      labelText: label,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(40.0),
+        borderSide: const BorderSide(
+          color: Color(0xFFC4B8B8),
+          width: 2.0,
+        ),
+      ),
+    ),
+  );
+}
+```
+
+<Warning>
+  Email updates require verification. Users must confirm their new email address before the change takes effect. Reauthentication may be required for sensitive operations.
+</Warning>
+
+## User Search Functionality
+
+The app includes powerful user search capabilities for adding members to teams:
+
+### Search by Name
+
+```dart lib/services/auth_service.dart
+Future<List<UserProfile>> searchUsersByName(String name) async {
+  try {
+    final snapshot = await _firestore
+        .collection('users')
+        .where('name', isGreaterThanOrEqualTo: name)
+        .where('name', isLessThanOrEqualTo: '$name\uf8ff')
+        .get();
+
+    return snapshot.docs
+        .map((doc) => UserProfile.fromFirestore(doc.data(), doc.id))
+        .toList();
+  } catch (e) {
+    _logger.e('Error al buscar usuarios: $e');
+    return [];
+  }
+}
+```
+
+### Search by Name or Email
+
+```dart lib/services/auth_service.dart
+Future<List<UserProfile>> searchUsersByNameOrEmail(String query) async {
+  try {
+    // Search by name
+    final snapshot = await _firestore
+        .collection('users')
+        .where('name', isGreaterThanOrEqualTo: query)
+        .where('name', isLessThanOrEqualTo: '$query\uf8ff')
+        .get();
+
+    // Search by email
+    final emailSnapshot = await _firestore
+        .collection('users')
+        .where('email', isGreaterThanOrEqualTo: query)
+        .where('email', isLessThanOrEqualTo: '$query\uf8ff')
+        .get();
+
+    // Combine results
+    final users = snapshot.docs
+        .map((doc) => UserProfile.fromFirestore(doc.data(), doc.id))
+        .toList();
+    final emailUsers = emailSnapshot.docs
+        .map((doc) => UserProfile.fromFirestore(doc.data(), doc.id))
+        .toList();
+
+    return [...users, ...emailUsers];
+  } catch (e) {
+    _logger.e('Error al buscar usuarios: $e');
+    return [];
+  }
+}
+```
+
+<Note>
+  The search uses Firestore's `isGreaterThanOrEqualTo` and `isLessThanOrEqualTo` with the special `\uf8ff` character to implement prefix matching. This allows partial name searches.
+</Note>
+
+### Search UI Implementation
+
+```dart lib/ui/screens/add_team_screen.dart
+void _searchUsers() async {
+  if (_searchQuery.isNotEmpty) {
+    final results = await _authService.searchUsersByNameOrEmail(_searchQuery);
+    setState(() {
+      _searchResults = results;
+    });
+  } else {
+    setState(() {
+      _searchResults = [];
+    });
+  }
+}
+
+Widget _buildSearchResultItem(UserProfile user) {
+  return ListTile(
+    title: Text(user.name),
+    subtitle: Text(user.surname),
+    leading: user.photoUrl != null
+      ? CircleAvatar(backgroundImage: NetworkImage(user.photoUrl!))
+      : null,
+    onTap: () {
+      _addMemberToTeam(user);
+    },
+  );
+}
+```
+
+## Retrieving User Profiles
+
+### Get Single User Profile
+
+```dart lib/services/auth_service.dart
+Future<Map<String, dynamic>?> getUserProfile(String uid) async {
+  try {
+    DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
+    return doc.data() as Map<String, dynamic>?;
+  } catch (e) {
+    _logger.e('Error al obtener el perfil del usuario: $e');
+    return null;
+  }
+}
+```
+
+### Display User Profile in AppBar
+
+```dart lib/ui/screens/task_screen.dart
+StreamBuilder<DocumentSnapshot>(
+  stream: _firestore.collection('users').doc(user!.uid).snapshots(),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Text('Hola, Cargando...');
+    }
+    if (!snapshot.hasData || !snapshot.data!.exists) {
+      return const Text('Hola, Usuario');
+    }
+
+    var userData = snapshot.data!.data() as Map<String, dynamic>;
+    String userName = userData['name'] ?? 'Usuario';
+
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EditProfileScreen(userId: user.uid),
+              ),
+            );
+          },
+          child: CircleAvatar(
+            backgroundImage: userData['photoUrl'] != null
+              ? NetworkImage(userData['photoUrl'])
+              : null,
+            child: userData['photoUrl'] == null
+              ? const Icon(Icons.person)
+              : null,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Hola, $userName'),
+            const Text('¡Bienvenido de nuevo!'),
+          ],
+        ),
+      ],
+    );
+  },
+)
+```
+
+## Profile Photo Management
+
+### Retrieving Profile Photo URL
+
+```dart lib/ui/screens/task_screen.dart
+Future<String?> getProfileImageUrl() async {
+  User? user = _auth.currentUser;
+  if (user != null) {
+    try {
+      final ref = _storage.ref().child('profile_images/${user.uid}');
+      String downloadUrl = await ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      _logger.e('Error al obtener la URL de la imagen de perfil: $e');
+      return null;
+    }
+  }
+  return null;
+}
+```
+
+### Change Photo Button
+
+```dart lib/ui/screens/edit_profile_screen.dart
+Widget _buildChangePhotoButton() {
+  return GestureDetector(
+    onTap: _pickImage,
+    child: Container(
+      padding: const EdgeInsets.all(8),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFFEE93),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.camera_alt, size: 20),
+    ),
+  );
+}
+```
+
+## Real-time Profile Updates
+
+Profiles support real-time synchronization using Firestore streams:
+
+```dart
+Stream<DocumentSnapshot> getUserProfileStream(String uid) {
+  return _firestore.collection('users').doc(uid).snapshots();
+}
+```
+
+This ensures that profile changes (like name or photo updates) are immediately reflected across the app.
+
+## Validation and Error Handling
+
+### Email Validation
+
+```dart lib/ui/screens/register_screen.dart
+String? _validateEmail(String? value) {
+  if (value == null || value.isEmpty) {
+    return 'Por favor ingrese un correo electrónico';
+  }
+  final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+  if (!emailRegex.hasMatch(value)) {
+    return 'Por favor ingrese un correo electrónico válido';
+  }
+  return null;
+}
+```
+
+### Password Validation
+
+```dart lib/ui/screens/register_screen.dart
+String? _validatePassword(String? value) {
+  if (value == null || value.isEmpty) {
+    return 'Por favor ingrese una contraseña';
+  }
+  if (value.length < 8) {
+    return 'La contraseña debe tener al menos 8 caracteres';
+  }
+  return null;
+}
+```
+
+## Best Practices
+
+1. **Image Optimization**: Compress images before uploading to reduce storage costs
+2. **Secure Access**: Use Firebase Security Rules to protect user data
+3. **Validation**: Always validate user input before updating profiles
+4. **Error Handling**: Provide clear error messages for failed operations
+5. **Reauthentication**: Require reauthentication for sensitive changes
+6. **Real-time Updates**: Use streams for live profile data
+7. **Fallback UI**: Show placeholder icons when profile photos are unavailable
+
+## Security Considerations
+
+<Warning>
+  Implement proper Firebase Security Rules to ensure users can only read and write their own profile data:
+  
+  ```javascript
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /users/{userId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+  ```
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/features/authentication">
+    Learn about user authentication and registration
+  </Card>
+  <Card title="Team Management" icon="users" href="/features/team-management">
+    Discover how profiles integrate with team features
+  </Card>
+</CardGroup>

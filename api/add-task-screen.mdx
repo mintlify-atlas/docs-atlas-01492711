@@ -1,0 +1,442 @@
+---
+title: 'AddTaskScreen'
+description: 'Task management screen for creating, editing, and viewing team tasks'
+icon: 'list-check'
+---
+
+## Screen Overview
+
+The `AddTaskScreen` is a comprehensive task management interface that allows users to view, create, edit, and delete tasks within a specific team. It also provides team member management functionality.
+
+**Location:** `lib/ui/screens/add_task_screen.dart`
+
+## Purpose
+
+The AddTaskScreen provides:
+- Display of team information and members
+- Task list for the current user
+- Task creation with detailed properties
+- Task editing and status updates
+- Task deletion with confirmation
+- Team member management and search
+
+## Constructor
+
+```dart
+const AddTaskScreen({required this.team, super.key})
+```
+
+<ParamField path="team" type="Map<String, dynamic>" required>
+  Team data containing:
+  - `id`: Team document ID
+  - `name`: Team name
+  - `members`: List of member user IDs
+  - `color`: Team color (optional)
+</ParamField>
+
+## State Management
+
+### State Variables
+
+<ParamField path="tasks" type="List<Map<String, dynamic>>">
+  List of tasks assigned to the current user in this team. Each task contains:
+  - `id`: Task document ID
+  - `name`: Task title
+  - `description`: Task description
+  - `startDate`: DateTime for task start
+  - `endDate`: DateTime for task end
+  - `status`: Task status ("No Iniciado", "En desarrollo", "Finalizado")
+</ParamField>
+
+<ParamField path="teamMembers" type="List<Map<String, dynamic>>">
+  List of team members with:
+  - `id`: Member user ID
+  - `name`: Member name
+  - `photoUrl`: Member profile photo URL
+</ParamField>
+
+<ParamField path="selectedMembers" type="List<String>">
+  List of selected member IDs for task assignment.
+</ParamField>
+
+<ParamField path="searchResults" type="List<Map<String, dynamic>>">
+  Search results when adding new members.
+</ParamField>
+
+<ParamField path="isSearching" type="bool">
+  Flag indicating whether member search is active.
+</ParamField>
+
+### Firebase Services
+
+- **FirebaseFirestore** (`_firestore`): Database operations for tasks, teams, and users
+- **FirebaseAuth** (`_auth`): Authentication to get current user
+- **Logger** (`logger`): Global logger instance for debugging
+
+## Key Functionality
+
+### Task Operations
+
+#### Fetching Tasks
+
+```dart
+Future<void> _fetchTasks()
+```
+
+Retrieves all tasks for the current team where the current user is the responsible party. Located at `add_task_screen.dart:40`.
+
+**Query conditions:**
+- `teamId` equals the current team's ID
+- `responsibleId` equals the current user's ID
+
+#### Adding Tasks
+
+```dart
+Future<void> _addTask()
+```
+
+Opens the `AddTaskWidget` dialog for creating new tasks. Located at `add_task_screen.dart:93`.
+
+**Process:**
+1. Shows modal dialog with task creation form
+2. Passes team data and team members
+3. Refreshes task list on completion
+
+#### Updating Tasks
+
+```dart
+void _updateTask(
+  String taskId,
+  String currentName,
+  String currentDescription,
+  DateTime? startDate,
+  DateTime? endDate,
+  String? currentStatus,
+)
+```
+
+Displays a dialog for editing existing tasks. Located at `add_task_screen.dart:113`.
+
+**Editable fields:**
+- Task title
+- Description
+- Start date (date picker)
+- End date (date picker)
+- Status (3 options)
+
+**Status Options:**
+<CardGroup cols={3}>
+  <Card title="No Iniciado" icon="circle-xmark" color="#ff0000">
+    Red background when selected
+  </Card>
+  <Card title="En desarrollo" icon="circle-half-stroke" color="#ffa500">
+    Orange background when selected
+  </Card>
+  <Card title="Finalizado" icon="circle-check" color="#00ff00">
+    Green background when selected
+  </Card>
+</CardGroup>
+
+#### Deleting Tasks
+
+```dart
+Future<void> _deleteTask(String taskId)
+```
+
+Removes a task from Firestore and updates the local state. Located at `add_task_screen.dart:393`.
+
+```dart
+Future<void> _showDeleteTaskWarning(String taskId)
+```
+
+Shows confirmation dialog before deletion. Located at `add_task_screen.dart:405`.
+
+**Dialog features:**
+- Trash icon in circular avatar
+- Warning message about permanent deletion
+- Aceptar/Cancelar buttons
+
+### Team Member Operations
+
+#### Fetching Team Members
+
+```dart
+Future<void> _fetchTeamMembers()
+```
+
+Retrieves member details for all users in the team. Located at `add_task_screen.dart:68`.
+
+**Process:**
+1. Gets team document from Firestore
+2. Extracts member IDs array
+3. Fetches user details for each member
+4. Updates `teamMembers` state
+
+#### Adding Members
+
+```dart
+void _addMember()
+```
+
+Opens the `AddMemberDialog` for searching and adding team members. Located at `add_task_screen.dart:475`.
+
+```dart
+void _addMemberToTeam(String userId)
+```
+
+Adds a user to the team's members array in Firestore. Located at `add_task_screen.dart:491`.
+
+#### Viewing Assigned Members
+
+```dart
+void _showAssignedMembersDialog(String? assignedMemberId)
+```
+
+Displays information about the member assigned to a task. Located at `add_task_screen.dart:572`.
+
+## UI Components
+
+### App Bar
+
+Custom app bar with:
+- Large back button (yellow chevron, #FFEE93, 45px)
+- No title
+
+Located at `add_task_screen.dart:665-677`.
+
+### Team Header
+
+```dart
+Center(
+  child: Text(
+    '${widget.team['name']}',
+    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+  ),
+)
+```
+
+Displays team name and "Tareas del equipo" subtitle.
+
+### Members List
+
+```dart
+ListView.builder(
+  shrinkWrap: true,
+  physics: const NeverScrollableScrollPhysics(),
+  itemCount: teamMembers.length,
+  // ...
+)
+```
+
+Scrollable list showing:
+- Member avatar (NetworkImage or placeholder)
+- Member name
+
+Located at `add_task_screen.dart:707-724`.
+
+### Tasks List
+
+```dart
+Expanded(
+  child: tasks.isNotEmpty
+    ? ListView.builder(...)
+    : const Center(child: Text('No hay tareas')),
+)
+```
+
+Displays task cards with:
+- Task name (title)
+- Task description (subtitle)
+- Edit button (pencil icon)
+- Delete button (trash icon in pink circle)
+- Divider between tasks
+
+Tapping a task shows assigned member details.
+
+Located at `add_task_screen.dart:739-791`.
+
+### Floating Action Buttons
+
+Two FABs positioned at center-bottom:
+
+<CardGroup cols={2}>
+  <Card title="Add Member" icon="user-plus">
+    Opens member search dialog
+    
+    Icon: `Icons.person_add`
+  </Card>
+  <Card title="Add Task" icon="plus">
+    Opens task creation dialog
+    
+    Icon: `Icons.add`
+  </Card>
+</CardGroup>
+
+Both buttons:
+- Black background
+- White icon
+- Circular shape (100px border radius)
+
+Located at `add_task_screen.dart:794-824`.
+
+## Dialogs
+
+### Task Creation Dialog
+
+Implemented in `AddTaskWidget` (separate widget file). Contains:
+- Task name input
+- Description input
+- Member selection
+- Start/end date pickers
+- Status selection
+
+### Task Edit Dialog
+
+Custom `Dialog` widget with rounded corners (20px). Located at `add_task_screen.dart:124-388`.
+
+**Form fields:**
+1. **Título** - TextField with gray background (#F0EEEE)
+2. **Descripción** - TextField with gray background
+3. **Fecha de inicio** - Date picker with calendar icon
+4. **Fecha de fin** - Date picker with calendar icon
+5. **Estado** - Three status buttons
+
+**Actions:**
+- **Actualizar** (green #C8E2B3): Saves changes to Firestore
+- **Cancelar** (gray #C6C6C6): Closes dialog without saving
+
+### Delete Confirmation Dialog
+
+```dart
+AlertDialog(
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(20.0),
+  ),
+  // ...
+)
+```
+
+**Structure:**
+- Circular trash icon avatar (#FF9393)
+- Title: "¿Desea eliminar la tarea?"
+- Warning: "Recuerda que la tarea eliminada no se podrá recuperar."
+- Aceptar/Cancelar buttons
+
+Located at `add_task_screen.dart:406-473`.
+
+### Add Member Dialog
+
+Implemented as separate `AddMemberDialog` stateful widget. Located at `add_task_screen.dart:829-987`.
+
+**Features:**
+- Green circular icon (#E5F4DD background, #7FC47F icon)
+- Search field with real-time Firestore query
+- Results list with name and email
+- Aceptar/Cancelar buttons
+
+**Search functionality:**
+```dart
+void _searchUsers(String query)
+```
+- Searches users by name
+- Uses `isGreaterThanOrEqualTo` and `isLessThanOrEqualTo` for prefix matching
+- Updates `searchResults` state
+
+## Date Formatting
+
+Uses `intl` package for date formatting:
+
+```dart
+import 'package:intl/intl.dart';
+
+DateFormat('yyyy-MM-dd').format(updatedStartDate)
+```
+
+## Code Structure
+
+### Main Widget
+
+- **AddTaskScreen** (StatefulWidget): Widget definition with team parameter
+- **AddTaskScreenState** (State): State management and business logic
+
+### Helper Widget
+
+- **AddMemberDialog** (StatefulWidget): Separate widget for member search
+- **AddMemberDialogState** (State): Search state management
+
+### Method Organization
+
+1. **Initialization**: `initState()`, fetching methods
+2. **Task CRUD**: `_fetchTasks()`, `_addTask()`, `_updateTask()`, `_deleteTask()`
+3. **Member CRUD**: `_fetchTeamMembers()`, `_addMember()`, `_addMemberToTeam()`
+4. **UI helpers**: `showAssignedMembers()`, `_showAssignedMembersDialog()`, `_showDeleteTaskWarning()`
+5. **Build methods**: `build()`
+
+## Layout Structure
+
+```
+Scaffold
+├── AppBar
+│   └── IconButton (back)
+├── Body: Padding
+│   └── Column
+│       ├── Text (team name, centered)
+│       ├── Text ("Tareas del equipo", centered)
+│       ├── Text ("Miembros")
+│       ├── ListView.builder (members)
+│       ├── Divider
+│       ├── Text ("Tareas")
+│       └── Expanded
+│           └── ListView.builder (tasks) | "No hay tareas"
+└── FloatingActionButton (Row)
+    ├── FAB (add member)
+    └── FAB (add task)
+```
+
+## Error Handling
+
+All async operations include try-catch blocks with logging:
+
+```dart
+try {
+  // Firestore operation
+} catch (e) {
+  logger.e('Error message: $e');
+}
+```
+
+## Widget Lifecycle
+
+<Steps>
+  <Step title="Initialization">
+    `initState()` calls `_fetchTasks()` and `_fetchTeamMembers()`
+  </Step>
+  <Step title="Data Loading">
+    Fetches tasks and team member data from Firestore
+  </Step>
+  <Step title="State Update">
+    `setState()` updates UI with fetched data
+  </Step>
+  <Step title="User Interaction">
+    User can view, create, edit, or delete tasks and members
+  </Step>
+  <Step title="Real-time Updates">
+    Manual refresh after each operation
+  </Step>
+</Steps>
+
+## Navigation
+
+**Incoming:** From `TaskScreen` when user taps "Ver" on a team card
+
+**Outgoing:** Back to `TaskScreen` via back button or navigation pop
+
+## Performance Considerations
+
+<Warning>
+  The members list uses `NeverScrollableScrollPhysics()` and `shrinkWrap: true`, which can impact performance with large teams. Consider using a fixed height container for teams with many members.
+</Warning>
+
+<Info>
+  Tasks are filtered by `responsibleId` to show only tasks assigned to the current user, reducing query size and improving load times.
+</Info>

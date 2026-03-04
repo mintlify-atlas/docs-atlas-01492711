@@ -1,0 +1,293 @@
+---
+title: 'Authentication'
+description: 'Learn how to implement email/password and Google Sign-In authentication in your Flutter task management app'
+---
+
+## Overview
+
+The authentication system provides secure user registration and login using Firebase Authentication. It supports both email/password authentication and Google Sign-In integration, with automatic profile creation in Firestore.
+
+## Authentication Methods
+
+### Email/Password Authentication
+
+The app uses Firebase Authentication for email and password-based authentication.
+
+#### User Registration
+
+<Steps>
+  <Step title="Collect User Information">
+    Gather user details including name, surname, email, and password through the registration form.
+  </Step>
+  
+  <Step title="Create Firebase User">
+    Use `registerWithEmailAndPassword()` to create a new user account in Firebase Authentication.
+  </Step>
+  
+  <Step title="Save User Profile">
+    Store additional user information in Firestore using the `saveUserProfile()` method.
+  </Step>
+</Steps>
+
+**Code Example from AuthService:**
+
+```dart lib/services/auth_service.dart
+// Register user with email and password
+Future<User?> registerWithEmailAndPassword(String email, String password) async {
+  try {
+    UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    return userCredential.user;
+  } catch (e) {
+    _logger.e('Error al registrar usuario: $e');
+    return null;
+  }
+}
+
+// Save user profile to Firestore
+Future<void> saveUserProfile(String uid, String name, String surname, File? profileImage) async {
+  try {
+    String? photoUrl;
+    if (profileImage != null) {
+      final storageRef = _storage.ref().child('profileImages/$uid.jpg');
+      await storageRef.putFile(profileImage);
+      photoUrl = await storageRef.getDownloadURL();
+    }
+
+    await _firestore.collection('users').doc(uid).set({
+      'name': name,
+      'surname': surname,
+      'photoUrl': photoUrl,
+    });
+    _logger.i('Perfil guardado con éxito');
+  } catch (e) {
+    _logger.e('Error al guardar el perfil del usuario: $e');
+  }
+}
+```
+
+#### User Login
+
+The login flow authenticates users with their email and password credentials.
+
+**Code Example:**
+
+```dart lib/services/auth_service.dart
+// Sign in with email and password
+Future<User?> signInWithEmailAndPassword(String email, String password) async {
+  try {
+    UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    return userCredential.user;
+  } catch (e) {
+    _logger.e('Error al iniciar sesión: $e');
+    return null;
+  }
+}
+```
+
+**Usage in LoginScreen:**
+
+```dart lib/ui/screens/login_screen.dart
+void _loginWithEmail() async {
+  final email = _emailController.text.trim();
+  final password = _passwordController.text.trim();
+
+  final user = await _authService.signInWithEmailAndPassword(email, password);
+  if (user != null) {
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/home');
+  } else if (mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Inicio de sesión fallido. Verifica tus credenciales.')
+      ),
+    );
+  }
+}
+```
+
+<Note>
+  Always validate user input before attempting authentication. The app includes email format validation and minimum password length requirements (8 characters).
+</Note>
+
+### Google Sign-In Integration
+
+Google Sign-In provides a streamlined authentication experience using the user's Google account.
+
+**Code Example:**
+
+```dart lib/services/auth_service.dart
+// Sign in with Google
+Future<User?> signInWithGoogle() async {
+  try {
+    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+    if (googleUser == null) return null;
+
+    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+    final AuthCredential credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    final UserCredential userCredential = await _auth.signInWithCredential(credential);
+    User? user = userCredential.user;
+
+    // Check if user profile exists in Firestore
+    DocumentSnapshot userDoc = await _firestore.collection('users').doc(user!.uid).get();
+    if (!userDoc.exists) {
+      // Create profile if it doesn't exist
+      await saveUserProfile(user.uid, user.displayName ?? 'Sin nombre', '', null);
+    }
+
+    return user;
+  } catch (e) {
+    _logger.e('Error al iniciar sesión con Google: $e');
+    return null;
+  }
+}
+```
+
+<Warning>
+  Google Sign-In automatically creates a user profile in Firestore if one doesn't exist. The system checks for existing profiles to avoid duplicate entries.
+</Warning>
+
+## Session Management
+
+### Current User Access
+
+Access the currently authenticated user anywhere in your app:
+
+```dart
+// Get the current user
+User? get currentUser => _auth.currentUser;
+```
+
+### Sign Out
+
+Properly sign out users from both Firebase and Google:
+
+```dart lib/services/auth_service.dart
+// Sign out from all authentication providers
+Future<void> signOut() async {
+  await _auth.signOut();
+  await _googleSignIn.signOut();
+}
+```
+
+**Usage Example:**
+
+```dart
+IconButton(
+  icon: const Icon(Icons.logout),
+  onPressed: () async {
+    final navigator = Navigator.of(context);
+    await _authService.signOut();
+    navigator.pushReplacementNamed('/');
+  },
+)
+```
+
+## User Profile Retrieval
+
+### Get User Profile Data
+
+Retrieve complete user profile information from Firestore:
+
+```dart lib/services/auth_service.dart
+Future<Map<String, dynamic>?> getUserProfile(String uid) async {
+  try {
+    DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
+    return doc.data() as Map<String, dynamic>?;
+  } catch (e) {
+    _logger.e('Error al obtener el perfil del usuario: $e');
+    return null;
+  }
+}
+```
+
+### Display User Information
+
+Access basic user properties directly:
+
+```dart
+String? get displayName => _auth.currentUser?.displayName;
+String? get photoURL => _auth.currentUser?.photoURL;
+```
+
+## Password Recovery
+
+<Note>
+  Firebase Authentication provides built-in password reset functionality. Users receive a password reset email at their registered email address. Implementation details can be added using Firebase's `sendPasswordResetEmail()` method.
+</Note>
+
+## Terms and Conditions
+
+The login screen includes a terms and conditions acceptance checkbox. Users must accept the terms before they can log in:
+
+```dart lib/ui/screens/login_screen.dart
+Row(
+  mainAxisAlignment: MainAxisAlignment.start,
+  children: [
+    Checkbox(
+      value: _acceptedTerms,
+      onChanged: (bool? value) {
+        setState(() {
+          _acceptedTerms = value ?? false;
+        });
+      },
+    ),
+    GestureDetector(
+      onTap: () {
+        _showTermsAndConditions(context);
+      },
+      child: const Text(
+        'Acepto Términos y Condiciones',
+        style: TextStyle(color: Color(0xFF6BCE81)),
+      ),
+    ),
+  ],
+)
+```
+
+## Security Best Practices
+
+1. **Password Validation**: Minimum 8 characters required
+2. **Email Validation**: Proper email format checking using regex
+3. **Secure Storage**: User credentials managed by Firebase Authentication
+4. **Profile Images**: Stored securely in Firebase Storage with user-specific paths
+5. **Error Handling**: Comprehensive error logging using Logger
+
+## Data Structure
+
+### Firestore User Document
+
+```
+users/{userId}
+  ├─ name: string
+  ├─ surname: string
+  ├─ email: string (optional)
+  └─ photoUrl: string (optional)
+```
+
+### Firebase Storage Structure
+
+```
+profileImages/
+  └─ {userId}.jpg
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="User Profiles" icon="user" href="/features/user-profiles">
+    Learn how to manage and update user profile information
+  </Card>
+  <Card title="Team Management" icon="users" href="/features/team-management">
+    Discover how to create and manage teams
+  </Card>
+</CardGroup>

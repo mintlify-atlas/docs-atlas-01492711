@@ -1,0 +1,170 @@
+---
+title: 'UserProfile'
+description: 'Data model representing a user profile in the application'
+icon: 'user'
+---
+
+## Class Overview
+
+The `UserProfile` class is a Flutter model that represents user information in the application. It provides methods for serialization and deserialization with Firestore.
+
+**Location:** `lib/models/user_profile.dart`
+
+## Properties
+
+<ParamField path="uid" type="String" required>
+  Unique identifier for the user. This is typically the Firebase Auth user ID.
+</ParamField>
+
+<ParamField path="name" type="String" required>
+  The user's first name.
+</ParamField>
+
+<ParamField path="surname" type="String" required>
+  The user's last name or surname.
+</ParamField>
+
+<ParamField path="photoUrl" type="String?">
+  Optional URL to the user's profile photo. Can be null if no photo is set.
+</ParamField>
+
+## Constructor
+
+```dart
+UserProfile({
+  required String uid,
+  required String name,
+  required String surname,
+  String? photoUrl,
+})
+```
+
+Creates a new `UserProfile` instance with the specified properties.
+
+### Parameters
+
+- **uid** (required): The unique user identifier
+- **name** (required): The user's first name
+- **surname** (required): The user's last name
+- **photoUrl** (optional): URL to the user's profile photo
+
+## Methods
+
+### fromFirestore()
+
+```dart
+factory UserProfile.fromFirestore(Map<String, dynamic> data, String uid)
+```
+
+Factory constructor that creates a `UserProfile` instance from Firestore document data.
+
+**Parameters:**
+- `data` - Map containing the Firestore document fields
+- `uid` - The user's unique identifier
+
+**Returns:** A new `UserProfile` instance
+
+**Example:**
+```dart
+final userDoc = await FirebaseFirestore.instance
+    .collection('users')
+    .doc(userId)
+    .get();
+
+final userProfile = UserProfile.fromFirestore(
+  userDoc.data()!,
+  userId,
+);
+```
+
+### toMap()
+
+```dart
+Map<String, dynamic> toMap()
+```
+
+Converts the `UserProfile` instance to a Map suitable for saving to Firestore.
+
+**Returns:** A Map containing the user's name, surname, and photoUrl (excluding uid)
+
+**Example:**
+```dart
+final userProfile = UserProfile(
+  uid: 'user123',
+  name: 'John',
+  surname: 'Doe',
+  photoUrl: 'https://example.com/photo.jpg',
+);
+
+await FirebaseFirestore.instance
+    .collection('users')
+    .doc(userProfile.uid)
+    .set(userProfile.toMap());
+```
+
+## Usage in Authentication Flow
+
+The `UserProfile` model is commonly used during user registration and profile management:
+
+### Creating a User Profile
+
+```dart
+// After successful registration
+final user = FirebaseAuth.instance.currentUser;
+if (user != null) {
+  final userProfile = UserProfile(
+    uid: user.uid,
+    name: 'John',
+    surname: 'Doe',
+    photoUrl: null,
+  );
+
+  await FirebaseFirestore.instance
+      .collection('users')
+      .doc(user.uid)
+      .set(userProfile.toMap());
+}
+```
+
+### Fetching User Profile
+
+```dart
+final userId = FirebaseAuth.instance.currentUser?.uid;
+if (userId != null) {
+  final doc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(userId)
+      .get();
+
+  if (doc.exists) {
+    final userProfile = UserProfile.fromFirestore(
+      doc.data()!,
+      userId,
+    );
+    print('User: ${userProfile.name} ${userProfile.surname}');
+  }
+}
+```
+
+### Updating User Profile
+
+```dart
+final updatedProfile = UserProfile(
+  uid: currentUser.uid,
+  name: 'Jane',
+  surname: 'Smith',
+  photoUrl: 'https://example.com/new-photo.jpg',
+);
+
+await FirebaseFirestore.instance
+    .collection('users')
+    .doc(updatedProfile.uid)
+    .update(updatedProfile.toMap());
+```
+
+## Notes
+
+- The `uid` field is not included in the `toMap()` output since it's used as the document ID in Firestore
+- The `photoUrl` field is optional and can be `null`
+- Default empty strings are used for `name` and `surname` if the Firestore data doesn't contain these fields
+- The model includes an `email` getter that always returns `null` (line 26)

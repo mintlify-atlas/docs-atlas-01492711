@@ -1,0 +1,360 @@
+---
+title: Notifications
+description: Configure and manage task notifications to stay on top of deadlines and updates
+---
+
+Notifications help you stay informed about task deadlines, updates, and team activities. Learn how to set up and manage notifications effectively.
+
+## Notification System Overview
+
+The task management app includes a notification system that helps you:
+
+- Track upcoming task deadlines
+- Monitor task assignments
+- Stay updated on task status changes
+- Never miss important project milestones
+
+<Note>
+  The app uses **flutter_local_notifications** to deliver timely alerts directly to your device, even when the app is not actively open.
+</Note>
+
+## Accessing Notifications
+
+### Notification Screen
+
+To view your notification history:
+
+1. From the main dashboard, navigate to the notifications section
+2. You'll see a list of all tasks with their current status
+3. Each notification displays:
+   - Task name
+   - Task description
+   - Completion status (check icon for completed, pending icon for incomplete)
+
+**Visual Indicators:**
+- **Green check icon**: Task is marked as completed
+- **Red pending icon**: Task is incomplete or in progress
+
+## Task Reminders
+
+Task reminders help ensure deadlines are met and work stays on schedule.
+
+### When You Receive Reminders
+
+The app may send notifications for:
+
+**Deadline Approaching**
+- Tasks with upcoming end dates
+- Helps you plan work before deadlines
+- Triggered based on task end date
+
+**Task Assignments**
+- When you're assigned a new task
+- Notification includes task title and description
+- Ensures you're aware of new responsibilities
+
+**Status Changes**
+- When task status is updated
+- Keeps team members informed of progress
+- Useful for dependent tasks
+
+<Tip>
+  Set task end dates thoughtfully to ensure you receive timely reminders before deadlines.
+</Tip>
+
+## Setting Up Notifications
+
+<Steps>
+  <Step title="Enable Notification Permissions">
+    When you first use the app, you'll be prompted to allow notifications. Tap **Allow** to enable the notification system.
+    
+    **Why this matters:**
+    - Receive timely alerts about tasks
+    - Get reminders even when the app is closed
+    - Stay synchronized with team updates
+  </Step>
+
+  <Step title="Configure Device Settings">
+    Ensure your device allows notifications from the task management app:
+    
+    **For Android:**
+    1. Open device Settings
+    2. Navigate to Apps & Notifications
+    3. Find your task management app
+    4. Enable "Show notifications"
+    5. Set notification importance to "High" or "Urgent"
+    
+    **For iOS:**
+    1. Open device Settings
+    2. Scroll to the task management app
+    3. Tap Notifications
+    4. Enable "Allow Notifications"
+    5. Choose alert style (Banner, Alert, etc.)
+  </Step>
+
+  <Step title="Set Task End Dates">
+    For tasks where you want reminders:
+    
+    1. Create or edit the task
+    2. Set a specific end date using the date picker
+    3. Save the task
+    
+    The notification system uses end dates to determine when to send deadline reminders.
+  </Step>
+
+  <Step title="Monitor Notification Center">
+    Check the in-app notifications screen regularly to:
+    - Review all your tasks
+    - See completion status at a glance
+    - Track overall progress
+  </Step>
+</Steps>
+
+## Notification Permissions
+
+### Understanding Permission Levels
+
+**Full Notifications Access:**
+- Receive all task reminders
+- Get deadline alerts
+- See status updates
+- Best for active team members
+
+**Limited or No Permissions:**
+- Must check the app manually for updates
+- May miss deadlines
+- Not recommended for task-critical work
+
+### Managing Permissions
+
+<AccordionGroup>
+  <Accordion title="Enabling Notifications After Initial Denial">
+    If you previously denied notification permissions:
+    
+    **Android:**
+    1. Go to Settings > Apps > Task Management App
+    2. Tap Permissions
+    3. Find Notifications
+    4. Enable notifications
+    5. Restart the app
+    
+    **iOS:**
+    1. Go to Settings
+    2. Scroll to the app
+    3. Tap Notifications
+    4. Toggle "Allow Notifications" on
+    5. Choose alert preferences
+  </Accordion>
+
+  <Accordion title="Adjusting Notification Sound and Vibration">
+    Customize how you're alerted:
+    
+    **Android:**
+    - In device settings, find the app's notification settings
+    - Choose notification category
+    - Select sound, vibration, and visual preferences
+    
+    **iOS:**
+    - In notification settings for the app
+    - Choose Sounds
+    - Select Vibration pattern
+    - Configure badge app icon
+  </Accordion>
+
+  <Accordion title="Notification Priority Levels">
+    Set appropriate priority based on urgency:
+    
+    **High Priority:**
+    - Deadline reminders
+    - Urgent task assignments
+    - Critical status changes
+    
+    **Normal Priority:**
+    - General task updates
+    - Team activity notifications
+    - Status change confirmations
+    
+    Configure these in your device's notification settings for the app.
+  </Accordion>
+</AccordionGroup>
+
+## Flutter Local Notifications Integration
+
+The app uses **flutter_local_notifications** plugin to provide:
+
+### Core Features
+
+**Local Device Notifications**
+- Notifications are generated on your device
+- No internet required for delivery
+- Works even when the app is closed
+- Fast and reliable
+
+**Scheduled Notifications**
+- Reminders triggered at specific times
+- Based on task end dates
+- Automatic scheduling when tasks are created
+- Updates when task dates change
+
+**Rich Notifications**
+- Task titles and descriptions
+- Status information
+- Actionable from notification shade
+- Tapping opens relevant task details
+
+<Note>
+  flutter_local_notifications provides cross-platform notification support, ensuring consistent behavior on both Android and iOS devices.
+</Note>
+
+## Managing Notification Preferences
+
+### Notification Timing
+
+To control when you receive notifications:
+
+**Best Practices:**
+- Set task end dates for automatic deadline reminders
+- Use realistic deadlines to avoid notification fatigue
+- Review and update task dates as priorities change
+- Mark completed tasks as "Finalizado" to stop reminders
+
+### Reducing Notification Overload
+
+<Tip>
+  If you're receiving too many notifications:
+  
+  1. Update completed tasks to "Finalizado" status
+  2. Remove or adjust unrealistic end dates
+  3. Focus on fewer, higher-priority tasks
+  4. Consider device-level Do Not Disturb settings for specific times
+</Tip>
+
+## Notification Workflows
+
+<Steps>
+  <Step title="Morning Routine">
+    Start your day by:
+    
+    1. Check notification center for overnight updates
+    2. Review tasks with pending status
+    3. Prioritize tasks based on deadlines
+    4. Clear completed task notifications
+  </Step>
+
+  <Step title="During Work Hours">
+    Stay productive with notifications:
+    
+    1. Respond promptly to new task assignments
+    2. Update task status when you start work
+    3. Set realistic end dates for planning
+    4. Check the notifications screen between meetings
+  </Step>
+
+  <Step title="End of Day">
+    Wrap up with notifications:
+    
+    1. Mark completed tasks as "Finalizado"
+    2. Review tomorrow's deadlines
+    3. Update status on in-progress tasks
+    4. Plan next day's priorities based on reminders
+  </Step>
+</Steps>
+
+## Notification Best Practices
+
+<AccordionGroup>
+  <Accordion title="Setting Effective Deadlines">
+    Create meaningful reminders by:
+    
+    **Be Realistic:**
+    - Set achievable end dates
+    - Include buffer time for unexpected delays
+    - Consider team member availability
+    
+    **Be Specific:**
+    - Use exact dates, not "someday"
+    - Align with project milestones
+    - Coordinate with dependent tasks
+    
+    **Be Consistent:**
+    - Always set end dates for important tasks
+    - Update dates when plans change
+    - Remove dates from low-priority items
+  </Accordion>
+
+  <Accordion title="Managing Task Status for Notifications">
+    Keep notification relevant by:
+    
+    **Update Regularly:**
+    - Change status when you start work ("En desarrollo")
+    - Mark completed tasks immediately ("Finalizado")
+    - This keeps the notification center accurate
+    
+    **Clear Communication:**
+    - Status changes may trigger team notifications
+    - Keep team informed of progress
+    - Prevents duplicate work and confusion
+  </Accordion>
+
+  <Accordion title="Notification Hygiene">
+    Maintain a clean notification system:
+    
+    - **Review weekly**: Check notification center regularly
+    - **Archive completed**: Mark old tasks as done
+    - **Update deadlines**: Keep end dates current
+    - **Clear unnecessary tasks**: Delete obsolete tasks
+    - **Test settings**: Ensure notifications are working
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting Notifications
+
+**Not receiving notifications?**
+- Check device notification permissions for the app
+- Ensure notifications aren't blocked in device settings
+- Verify the app has battery optimization exceptions
+- Restart the app to reinitialize notification service
+
+**Too many notifications?**
+- Update completed tasks to "Finalizado" status
+- Review and adjust task end dates
+- Enable Do Not Disturb during focus time
+- Consider device-level notification batching
+
+**Notifications not showing task details?**
+- Ensure the app is updated to the latest version
+- Check that task descriptions are saved properly
+- Verify notification permissions allow full detail display
+
+**Delayed notifications?**
+- Check device battery optimization settings
+- Ensure the app isn't being aggressively closed
+- Verify your device has adequate resources
+- Consider allowing the app to run in background
+
+<Warning>
+  Some Android devices aggressively manage battery by limiting background processes. You may need to whitelist the app in your device's battery settings for reliable notifications.
+</Warning>
+
+## Advanced Notification Settings
+
+### Device-Specific Optimization
+
+**Android Manufacturers:**
+
+Some Android devices (Samsung, Xiaomi, Huawei) require additional steps:
+
+1. **Battery Optimization:** Exclude the app from battery optimization
+2. **Autostart:** Enable autostart for the app
+3. **Background Activity:** Allow background data usage
+4. **Notification Channels:** Configure app notification channels
+
+**iOS Devices:**
+
+1. **Screen Time:** Ensure app isn't restricted
+2. **Focus Modes:** Configure to allow task notifications
+3. **Notification Summary:** Decide if time-sensitive
+
+<Tip>
+  For the most reliable notifications, set the task management app as a "priority" or "essential" app in your device settings.
+</Tip>

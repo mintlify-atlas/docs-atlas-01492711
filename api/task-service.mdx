@@ -1,0 +1,609 @@
+---
+title: 'Task Management'
+description: 'Task creation, assignment, and real-time management within teams'
+---
+
+## Overview
+
+While the codebase includes a `TeamService` class, task-related functionality is typically integrated within the team management system. This document covers task management patterns and data structures used in the application.
+
+**Note**: Based on the source code analysis, explicit task service methods were not found in the `task_service.dart` file. This documentation describes the expected task management patterns based on the team service structure.
+
+---
+
+## Task Data Structure
+
+### Firestore Collection
+
+Tasks are stored in a `tasks` subcollection under each team document:
+
+```
+teams/{teamId}/tasks/{taskId}
+```
+
+### Task Document Schema
+
+```json
+{
+  "title": "Task title",
+  "description": "Detailed task description",
+  "status": "pending",
+  "assignedTo": "user_uid_123",
+  "createdBy": "user_uid_456",
+  "createdAt": Timestamp,
+  "updatedAt": Timestamp,
+  "dueDate": Timestamp,
+  "priority": "high",
+  "teamId": "team_id_123"
+}
+```
+
+<ParamField path="title" type="String" required>
+  The task title or summary
+</ParamField>
+
+<ParamField path="description" type="String">
+  Detailed description of the task
+</ParamField>
+
+<ParamField path="status" type="String" required>
+  Current task status. Common values: `"pending"`, `"in_progress"`, `"completed"`, `"cancelled"`
+</ParamField>
+
+<ParamField path="assignedTo" type="String">
+  Firebase Auth UID of the user assigned to this task
+</ParamField>
+
+<ParamField path="createdBy" type="String" required>
+  Firebase Auth UID of the user who created the task
+</ParamField>
+
+<ParamField path="createdAt" type="Timestamp" required>
+  Server-generated timestamp when the task was created
+</ParamField>
+
+<ParamField path="updatedAt" type="Timestamp">
+  Timestamp of the last update to the task
+</ParamField>
+
+<ParamField path="dueDate" type="Timestamp">
+  Optional due date for task completion
+</ParamField>
+
+<ParamField path="priority" type="String">
+  Task priority level: `"low"`, `"medium"`, `"high"`, `"urgent"`
+</ParamField>
+
+<ParamField path="teamId" type="String" required>
+  Reference to the parent team document ID
+</ParamField>
+
+---
+
+## Task Creation Workflow
+
+### Creating a Task
+
+Based on the TeamService pattern, task creation would follow this structure:
+
+```dart
+Future<void> createTask(
+  String teamId,
+  String title,
+  String description, {
+  String? assignedTo,
+  DateTime? dueDate,
+  String priority = 'medium',
+}) async {
+  try {
+    User? currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      await _firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('tasks')
+          .add({
+        'title': title,
+        'description': description,
+        'status': 'pending',
+        'assignedTo': assignedTo,
+        'createdBy': currentUser.uid,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'dueDate': dueDate != null ? Timestamp.fromDate(dueDate) : null,
+        'priority': priority,
+        'teamId': teamId,
+      });
+    }
+  } catch (e) {
+    _logger.e('Error creating task: $e');
+  }
+}
+```
+
+#### Example Usage
+
+```dart
+final teamService = TeamService();
+
+await teamService.createTask(
+  'team_id_123',
+  'Implement authentication',
+  'Add email/password and Google Sign-In authentication',
+  assignedTo: 'user_uid_456',
+  dueDate: DateTime.now().add(Duration(days: 7)),
+  priority: 'high',
+);
+```
+
+---
+
+## Task Retrieval
+
+### Getting Team Tasks
+
+Retrieve all tasks for a specific team in real-time:
+
+```dart
+Stream<List<Map<String, dynamic>>> getTeamTasks(String teamId) {
+  try {
+    return _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('tasks')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => 
+          snapshot.docs.map((doc) => {
+            'id': doc.id,
+            ...doc.data(),
+          }).toList()
+        );
+  } catch (e) {
+    _logger.e('Error getting team tasks: $e');
+    return const Stream.empty();
+  }
+}
+```
+
+#### Example Usage with StreamBuilder
+
+```dart
+StreamBuilder<List<Map<String, dynamic>>>(
+  stream: teamService.getTeamTasks('team_id_123'),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) {
+      return CircularProgressIndicator();
+    }
+
+    final tasks = snapshot.data!;
+    return ListView.builder(
+      itemCount: tasks.length,
+      itemBuilder: (context, index) {
+        final task = tasks[index];
+        return TaskCard(
+          title: task['title'],
+          status: task['status'],
+          priority: task['priority'],
+        );
+      },
+    );
+  },
+)
+```
+
+---
+
+### Getting User's Assigned Tasks
+
+Retrieve tasks assigned to the current user across all teams:
+
+```dart
+Stream<List<Map<String, dynamic>>> getMyTasks() {
+  try {
+    User? currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      return _firestore
+          .collectionGroup('tasks')
+          .where('assignedTo', isEqualTo: currentUser.uid)
+          .orderBy('dueDate')
+          .snapshots()
+          .map((snapshot) => 
+            snapshot.docs.map((doc) => {
+              'id': doc.id,
+              ...doc.data(),
+            }).toList()
+          );
+    }
+  } catch (e) {
+    _logger.e('Error getting user tasks: $e');
+  }
+  return const Stream.empty();
+}
+```
+
+<Expandable title="Collection Group Query">
+  This method uses `collectionGroup('tasks')` to query all tasks across all teams. This requires a composite index in Firestore:
+  
+  **Required Index**:
+  - Collection Group: `tasks`
+  - Fields: `assignedTo` (Ascending), `dueDate` (Ascending)
+</Expandable>
+
+---
+
+## Task Status Management
+
+### Updating Task Status
+
+```dart
+Future<void> updateTaskStatus(
+  String teamId,
+  String taskId,
+  String newStatus,
+) async {
+  try {
+    await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('tasks')
+        .doc(taskId)
+        .update({
+      'status': newStatus,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    _logger.e('Error updating task status: $e');
+  }
+}
+```
+
+#### Status Values
+
+<ParamField path="pending" type="String">
+  Task has been created but not started
+</ParamField>
+
+<ParamField path="in_progress" type="String">
+  Task is currently being worked on
+</ParamField>
+
+<ParamField path="completed" type="String">
+  Task has been completed successfully
+</ParamField>
+
+<ParamField path="cancelled" type="String">
+  Task has been cancelled and will not be completed
+</ParamField>
+
+#### Example
+
+```dart
+// Mark task as in progress
+await teamService.updateTaskStatus(
+  'team_id_123',
+  'task_id_456',
+  'in_progress',
+);
+
+// Mark task as completed
+await teamService.updateTaskStatus(
+  'team_id_123',
+  'task_id_456',
+  'completed',
+);
+```
+
+---
+
+## Task Assignment
+
+### Assigning a Task to a User
+
+```dart
+Future<void> assignTask(
+  String teamId,
+  String taskId,
+  String userId,
+) async {
+  try {
+    await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('tasks')
+        .doc(taskId)
+        .update({
+      'assignedTo': userId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    _logger.e('Error assigning task: $e');
+  }
+}
+```
+
+### Unassigning a Task
+
+```dart
+Future<void> unassignTask(
+  String teamId,
+  String taskId,
+) async {
+  try {
+    await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('tasks')
+        .doc(taskId)
+        .update({
+      'assignedTo': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    _logger.e('Error unassigning task: $e');
+  }
+}
+```
+
+#### Example Usage
+
+```dart
+// Assign task to a user
+await teamService.assignTask(
+  'team_id_123',
+  'task_id_456',
+  'user_uid_789',
+);
+
+// Remove assignment
+await teamService.unassignTask(
+  'team_id_123',
+  'task_id_456',
+);
+```
+
+---
+
+## Real-time Task Updates
+
+### Listening to Task Changes
+
+Implement real-time updates for a specific task:
+
+```dart
+Stream<Map<String, dynamic>?> watchTask(
+  String teamId,
+  String taskId,
+) {
+  try {
+    return _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('tasks')
+        .doc(taskId)
+        .snapshots()
+        .map((doc) => doc.exists ? doc.data() : null);
+  } catch (e) {
+    _logger.e('Error watching task: $e');
+    return Stream.value(null);
+  }
+}
+```
+
+#### Example with StreamBuilder
+
+```dart
+StreamBuilder<Map<String, dynamic>?>(
+  stream: teamService.watchTask('team_id_123', 'task_id_456'),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) {
+      return CircularProgressIndicator();
+    }
+
+    final task = snapshot.data;
+    if (task == null) {
+      return Text('Task not found');
+    }
+
+    return Column(
+      children: [
+        Text('Title: ${task['title']}'),
+        Text('Status: ${task['status']}'),
+        Text('Priority: ${task['priority']}'),
+        if (task['assignedTo'] != null)
+          Text('Assigned to: ${task['assignedTo']}'),
+      ],
+    );
+  },
+)
+```
+
+---
+
+## Complete Task Management Example
+
+```dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
+class TaskManagementExample extends StatelessWidget {
+  final String teamId;
+  final TeamService teamService = TeamService();
+
+  TaskManagementExample({required this.teamId});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Team Tasks')),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: teamService.getTeamTasks(teamId),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return Center(child: CircularProgressIndicator());
+          }
+
+          final tasks = snapshot.data!;
+          if (tasks.isEmpty) {
+            return Center(child: Text('No tasks yet'));
+          }
+
+          return ListView.builder(
+            itemCount: tasks.length,
+            itemBuilder: (context, index) {
+              final task = tasks[index];
+              return TaskTile(
+                task: task,
+                onStatusChange: (newStatus) {
+                  teamService.updateTaskStatus(
+                    teamId,
+                    task['id'],
+                    newStatus,
+                  );
+                },
+                onAssign: (userId) {
+                  teamService.assignTask(
+                    teamId,
+                    task['id'],
+                    userId,
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showCreateTaskDialog(context),
+        child: Icon(Icons.add),
+      ),
+    );
+  }
+
+  void _showCreateTaskDialog(BuildContext context) {
+    final titleController = TextEditingController();
+    final descController = TextEditingController();
+    String priority = 'medium';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Create Task'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: InputDecoration(labelText: 'Title'),
+            ),
+            TextField(
+              controller: descController,
+              decoration: InputDecoration(labelText: 'Description'),
+              maxLines: 3,
+            ),
+            DropdownButton<String>(
+              value: priority,
+              items: ['low', 'medium', 'high', 'urgent']
+                  .map((p) => DropdownMenuItem(
+                        value: p,
+                        child: Text(p),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) priority = value;
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              teamService.createTask(
+                teamId,
+                titleController.text,
+                descController.text,
+                priority: priority,
+              );
+              Navigator.pop(context);
+            },
+            child: Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class TaskTile extends StatelessWidget {
+  final Map<String, dynamic> task;
+  final Function(String) onStatusChange;
+  final Function(String) onAssign;
+
+  const TaskTile({
+    required this.task,
+    required this.onStatusChange,
+    required this.onAssign,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.all(8.0),
+      child: ListTile(
+        title: Text(task['title']),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(task['description'] ?? ''),
+            Text('Status: ${task['status']}'),
+            Text('Priority: ${task['priority']}'),
+          ],
+        ),
+        trailing: PopupMenuButton<String>(
+          onSelected: onStatusChange,
+          itemBuilder: (context) => [
+            PopupMenuItem(value: 'pending', child: Text('Pending')),
+            PopupMenuItem(value: 'in_progress', child: Text('In Progress')),
+            PopupMenuItem(value: 'completed', child: Text('Completed')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+## Firestore Security Rules
+
+Recommended security rules for task management:
+
+```javascript
+match /teams/{teamId}/tasks/{taskId} {
+  // Allow read if user is a team member
+  allow read: if request.auth != null && 
+    exists(/databases/$(database)/documents/teams/$(teamId)) &&
+    get(/databases/$(database)/documents/teams/$(teamId)).data.userId == request.auth.uid;
+  
+  // Allow create if user is authenticated and is team owner
+  allow create: if request.auth != null &&
+    request.resource.data.createdBy == request.auth.uid &&
+    exists(/databases/$(database)/documents/teams/$(teamId));
+  
+  // Allow update if user created the task or is team owner
+  allow update: if request.auth != null && (
+    resource.data.createdBy == request.auth.uid ||
+    get(/databases/$(database)/documents/teams/$(teamId)).data.userId == request.auth.uid
+  );
+  
+  // Allow delete if user is team owner
+  allow delete: if request.auth != null &&
+    get(/databases/$(database)/documents/teams/$(teamId)).data.userId == request.auth.uid;
+}
+```

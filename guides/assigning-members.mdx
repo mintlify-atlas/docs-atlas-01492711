@@ -1,0 +1,335 @@
+---
+title: Assigning Members
+description: Learn how to add team members, assign tasks, and manage member permissions
+---
+
+Effective team collaboration starts with proper member management. This guide covers everything you need to know about adding members to teams, assigning them to tasks, and managing team composition.
+
+## Adding Members to a Team
+
+### Adding Members During Team Creation
+
+<Steps>
+  <Step title="Start Team Creation">
+    When creating a new team, you'll see an **Add Members** field in the team creation form.
+  </Step>
+
+  <Step title="Search for Users">
+    Type a team member's name in the search field. The app performs real-time search across all registered users in your organization.
+  </Step>
+
+  <Step title="Select from Search Results">
+    As you type, matching users appear in the search results below. Each result shows:
+    - User's name
+    - User's surname
+    - Profile photo (if available)
+    
+    Tap on any user to add them to your team.
+  </Step>
+
+  <Step title="Review Selected Members">
+    Added members appear in the "Selected Members" section. Review the list to ensure you've added everyone needed for the team.
+    
+    <Note>
+      As the team creator, you're automatically added to the team and don't need to search for yourself.
+    </Note>
+  </Step>
+</Steps>
+
+### Adding Members to an Existing Team
+
+<Steps>
+  <Step title="Navigate to Team Screen">
+    From your dashboard, tap **View** on the team card where you want to add members.
+  </Step>
+
+  <Step title="Tap the Add Member Button">
+    At the bottom of the team screen, you'll see two floating action buttons. Tap the left button with the **person add** icon (person with a plus sign).
+  </Step>
+
+  <Step title="Search for the User">
+    A dialog appears with a search field labeled "Search by name":
+    
+    1. Type the name of the person you want to add
+    2. The app searches the user database in real-time
+    3. Matching results appear below the search field
+  </Step>
+
+  <Step title="Select the User">
+    From the search results, tap on the user you want to add. Each result displays:
+    - User's full name
+    - User's email address
+    
+    Once selected, the user is immediately added to the team.
+  </Step>
+
+  <Step title="Confirm Addition">
+    After selecting the user, tap **Accept** in the dialog to finalize adding them to the team. The member list will refresh to show the new team member.
+  </Step>
+</Steps>
+
+<Tip>
+  Any team member can add new members to a team - not just the team creator. This enables flexible team growth.
+</Tip>
+
+## Searching for Users
+
+### Search Capabilities
+
+The member search function supports:
+
+**Search by Name**
+- Type any part of a user's first name or last name
+- Search is case-insensitive
+- Results appear as you type (real-time search)
+
+**Search by Email**
+- Enter a user's email address
+- Useful when multiple users have similar names
+- More precise for finding specific individuals
+
+### Search Best Practices
+
+<AccordionGroup>
+  <Accordion title="Finding Users Quickly">
+    - **Be specific**: Type at least 3 characters for better results
+    - **Use full names**: "John Smith" vs just "John"
+    - **Try email**: If names are common, search by email instead
+    - **Check spelling**: Ensure names are spelled correctly
+  </Accordion>
+
+  <Accordion title="When Users Don't Appear">
+    If you can't find someone:
+    
+    1. **Verify registration**: The user must have an account in the app
+    2. **Check organization**: They must be part of your organization
+    3. **Try alternative search**: Switch between name and email search
+    4. **Contact admin**: They may not have been onboarded yet
+  </Accordion>
+</AccordionGroup>
+
+## Assigning Tasks to Members
+
+<Steps>
+  <Step title="Create or Edit a Task">
+    Open the task creation dialog (when creating a new task) or task edit dialog (for existing tasks).
+  </Step>
+
+  <Step title="Select the Responsible Person">
+    Locate the **Responsible** dropdown in the task form. This dropdown lists all current team members.
+  </Step>
+
+  <Step title="Choose a Team Member">
+    Tap the dropdown and select the team member who will be responsible for completing this task. Only one person can be assigned as responsible per task.
+  </Step>
+
+  <Step title="Save the Assignment">
+    After selecting the responsible person, save the task. The assigned member can now see this task in their personal task view.
+  </Step>
+</Steps>
+
+<Note>
+  Only current team members appear in the responsible dropdown. If you need to assign a task to someone not in the list, add them to the team first.
+</Note>
+
+## Viewing Assigned Members
+
+### Viewing Team Members
+
+From any team screen:
+
+1. Navigate to the team by tapping **View** on the team card
+2. Below the team name, you'll see a **Members** section
+3. This section lists all team members with:
+   - Member's name
+   - Profile photo (if available)
+
+The member list shows everyone who can:
+- View team tasks
+- Create new tasks
+- Be assigned to tasks
+
+### Viewing Task Assignments
+
+To see who is assigned to a specific task:
+
+1. From the team task list, tap on any task
+2. A dialog displays showing the assigned member's name
+3. If no one is assigned, you'll see "No member assigned to this task"
+
+<Tip>
+  Use the assignment icon in the main app bar to view all your personal task assignments across all teams.
+</Tip>
+
+## Member Permissions and Roles
+
+### Team Creator Role
+
+The person who creates a team has special privileges:
+
+**Exclusive Permissions:**
+- Delete the entire team
+- Remove tasks and members
+- Full administrative control
+
+**Identifying Creators:**
+- The delete button on team cards is only visible to creators
+- Other members see the same team card without delete options
+
+### Regular Team Member Role
+
+All team members (including the creator) can:
+
+**Team Management:**
+- View all team members
+- Add new members to the team
+- View team details and description
+
+**Task Management:**
+- Create new tasks for the team
+- Edit any task (not just assigned tasks)
+- Update task status and details
+- View all team tasks
+- Delete tasks
+
+**Personal Tasks:**
+- View tasks assigned to them
+- Update their assigned tasks
+- Change status of their work
+
+<Note>
+  There is no distinction between regular members - all non-creator members have the same permissions.
+</Note>
+
+## Removing Members
+
+<Warning>
+  The current version of the app does not include a direct "remove member" feature. Team members remain in the team unless:
+  
+  - The team is deleted entirely (by the creator)
+  - The member's account is removed from the system
+  
+  This ensures team stability and prevents accidental removal of members.
+</Warning>
+
+### Managing Member Changes
+
+If you need to manage team membership:
+
+**For inactive members:**
+- Keep them in the team but don't assign new tasks
+- Document their inactive status in the team description
+
+**For members who leave:**
+- Reassign their tasks to active team members
+- Update task assignments and descriptions as needed
+
+**For team restructuring:**
+- Create a new team with the desired members
+- Move or recreate tasks in the new team
+- Archive or delete the old team (creator only)
+
+## Best Practices for Member Management
+
+<AccordionGroup>
+  <Accordion title="Optimal Team Sizing">
+    Consider these guidelines for team size:
+    
+    **Small Teams (3-5 members)**
+    - Best for focused projects
+    - Easier coordination
+    - Clear accountability
+    - Faster decision-making
+    
+    **Medium Teams (6-10 members)**
+    - Good for department-level work
+    - Diverse skill sets
+    - Requires more coordination
+    - Consider sub-team organization
+    
+    **Large Teams (10+ members)**
+    - Complex projects with many tasks
+    - May benefit from breaking into smaller teams
+    - Use clear task assignments to avoid confusion
+  </Accordion>
+
+  <Accordion title="Assignment Strategies">
+    Effective task assignment:
+    
+    **Match Skills to Tasks**
+    - Assign tasks based on member expertise
+    - Consider workload balance
+    - Rotate learning opportunities
+    
+    **Clear Ownership**
+    - Always assign a responsible person
+    - One person per task prevents confusion
+    - Use descriptions to note supporting members
+    
+    **Fair Distribution**
+    - Monitor task assignments across the team
+    - Balance workload among members
+    - Adjust assignments if someone is overloaded
+  </Accordion>
+
+  <Accordion title="Communication Guidelines">
+    Keep team members informed:
+    
+    **When adding members:**
+    - Let them know they've been added
+    - Explain team purpose and goals
+    - Orient them to existing tasks
+    
+    **When assigning tasks:**
+    - Ensure members understand their assignments
+    - Provide necessary context in descriptions
+    - Set realistic deadlines
+    
+    **Regular check-ins:**
+    - Review assignments in team meetings
+    - Update task statuses together
+    - Reassign tasks when priorities change
+  </Accordion>
+</AccordionGroup>
+
+## Member Onboarding Workflow
+
+<Steps>
+  <Step title="Add New Member to Team">
+    Use the add member function to search and add the new team member.
+  </Step>
+
+  <Step title="Assign Initial Task">
+    Create a simple onboarding task assigned to the new member, such as:
+    - "Review team project description"
+    - "Set up development environment"
+    - "Review existing tasks"
+  </Step>
+
+  <Step title="Provide Context">
+    Ensure the team description is up-to-date and informative. New members can reference this to understand team goals.
+  </Step>
+
+  <Step title="Gradually Increase Assignments">
+    Start with smaller tasks to help new members acclimate, then increase complexity and responsibility over time.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+**Can't find a user to add?**
+- Verify they're registered in the app
+- Check spelling of name or email
+- Confirm they're in your organization
+- Try searching by email instead of name
+
+**Member not seeing assigned tasks?**
+- Ensure task was saved properly
+- Ask them to refresh their task view
+- Verify they're logged into the correct account
+- Check that the task wasn't accidentally deleted
+
+**Wrong person assigned to task?**
+- Edit the task and change the responsible person
+- Update the assignment using the dropdown
+- Save the changes to update the assignment

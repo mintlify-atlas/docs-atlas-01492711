@@ -1,0 +1,514 @@
+---
+title: 'Google Sign-In Setup'
+description: 'Configure Google Sign-In authentication for Android and Web platforms'
+---
+
+## Overview
+
+Google Sign-In allows users to authenticate using their Google accounts. This guide covers platform-specific configuration for Android and Web.
+
+**Implementation Location:** `lib/services/auth_service.dart:66`
+
+## Prerequisites
+
+- Firebase project set up (see [Firebase Setup](/config/firebase-setup))
+- Google Sign-In enabled in Firebase Console
+- Flutter app with `google_sign_in` package
+
+## Dependencies
+
+Ensure these packages are in your `pubspec.yaml`:
+
+```yaml pubspec.yaml
+dependencies:
+  firebase_auth: any
+  google_sign_in: any
+  firebase_core: any
+  cloud_firestore: any
+```
+
+## Firebase Console Configuration
+
+<Steps>
+  <Step title="Enable Google Sign-In Provider">
+    1. Open [Firebase Console](https://console.firebase.google.com/)
+    2. Select your project (`aplicacion-trello`)
+    3. Go to **Authentication** > **Sign-in method**
+    4. Click on **Google** provider
+    5. Toggle **Enable**
+    6. Set project support email
+    7. Click **Save**
+  </Step>
+
+  <Step title="Configure OAuth Consent Screen">
+    1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+    2. Select your Firebase project
+    3. Navigate to **APIs & Services** > **OAuth consent screen**
+    4. Choose **External** user type (or Internal for Google Workspace)
+    5. Fill in required fields:
+       - App name: `App Tareas`
+       - User support email: your email
+       - Developer contact email: your email
+    6. Click **Save and Continue**
+    7. Skip scopes (default scopes are sufficient)
+    8. Add test users if in testing mode
+  </Step>
+
+  <Step title="Create OAuth 2.0 Credentials">
+    For Android, you'll need to create OAuth 2.0 credentials with your app's SHA-1 fingerprint.
+  </Step>
+</Steps>
+
+## Android Configuration
+
+### Getting SHA-1 Fingerprint
+
+The SHA-1 fingerprint is required for Google Sign-In on Android.
+
+<CodeGroup>
+
+```bash Debug Keystore
+# Get debug SHA-1 fingerprint
+keytool -list -v \
+  -alias androiddebugkey \
+  -keystore ~/.android/debug.keystore \
+  -storepass android \
+  -keypass android
+
+# Look for SHA-1 in the output
+# Example: SHA1: A1:B2:C3:D4:E5:F6:G7:H8:I9:J0:K1:L2:M3:N4:O5:P6:Q7:R8:S9:T0
+```
+
+```bash Release Keystore
+# Get release SHA-1 fingerprint
+keytool -list -v \
+  -alias <your-key-alias> \
+  -keystore <path-to-keystore> \
+  -storepass <store-password> \
+  -keypass <key-password>
+
+# Replace with your actual keystore details from key.properties
+```
+
+```bash Gradle Command
+# Alternative: Use Gradle to get SHA-1
+cd android
+./gradlew signingReport
+
+# Look for SHA-1 under "debug" or "release" variant
+```
+
+</CodeGroup>
+
+<Warning>
+  You need both debug and release SHA-1 fingerprints. Add both to Firebase Console for seamless development and production deployment.
+</Warning>
+
+### Adding SHA-1 to Firebase
+
+<Steps>
+  <Step title="Navigate to Project Settings">
+    1. Open Firebase Console
+    2. Click the gear icon > **Project settings**
+    3. Scroll to **Your apps** section
+    4. Select your Android app (`com.example.app_tareas`)
+  </Step>
+
+  <Step title="Add SHA-1 Fingerprints">
+    1. Scroll to **SHA certificate fingerprints**
+    2. Click **Add fingerprint**
+    3. Paste your debug SHA-1
+    4. Click **Add fingerprint** again
+    5. Paste your release SHA-1
+    6. Click **Save**
+  </Step>
+
+  <Step title="Download Updated google-services.json">
+    After adding SHA-1 fingerprints:
+    1. Download the updated `google-services.json`
+    2. Replace the file in `android/app/google-services.json`
+  </Step>
+</Steps>
+
+### Android Manifest Configuration
+
+Verify your `android/app/src/main/AndroidManifest.xml`:
+
+```xml AndroidManifest.xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.app_tareas">
+    
+    <!-- Internet permission required for Google Sign-In -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    
+    <application
+        android:label="App Tareas"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+</manifest>
+```
+
+### Build.gradle Configuration
+
+Ensure Google Services plugin is applied:
+
+```gradle android/app/build.gradle
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+    id 'com.google.gms.google-services'  // Required for Google Sign-In
+    id 'dev.flutter.flutter-gradle-plugin'
+}
+
+android {
+    namespace 'com.example.app_tareas'
+    compileSdkVersion flutter.compileSdkVersion
+    
+    defaultConfig {
+        applicationId 'com.example.app_tareas'
+        minSdkVersion 23  // Google Sign-In requires min SDK 23
+        targetSdkVersion flutter.targetSdkVersion
+    }
+}
+```
+
+## Web Configuration
+
+<Steps>
+  <Step title="Get Web Client ID">
+    1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+    2. Select your Firebase project
+    3. Navigate to **APIs & Services** > **Credentials**
+    4. Find "Web client (auto created by Google Service)"
+    5. Copy the **Client ID** (ends with `.apps.googleusercontent.com`)
+  </Step>
+
+  <Step title="Configure Google Sign-In for Web">
+    Update your `web/index.html` to include Google Sign-In meta tag:
+
+    ```html web/index.html
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>App Tareas</title>
+      
+      <!-- Google Sign-In Client ID -->
+      <meta name="google-signin-client_id" 
+            content="848491517392-YOUR_WEB_CLIENT_ID.apps.googleusercontent.com">
+      
+      <link rel="manifest" href="manifest.json">
+    </head>
+    <body>
+      <script src="main.dart.js" type="application/javascript"></script>
+    </body>
+    </html>
+    ```
+  </Step>
+
+  <Step title="Initialize Google Sign-In for Web">
+    When initializing GoogleSignIn for web, provide the client ID:
+
+    ```dart
+    final GoogleSignIn _googleSignIn = GoogleSignIn(
+      clientId: '848491517392-YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+    );
+    ```
+  </Step>
+</Steps>
+
+## Implementation Code
+
+Here's the complete Google Sign-In implementation from `lib/services/auth_service.dart:66`:
+
+```dart lib/services/auth_service.dart
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:logger/logger.dart';
+
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final Logger _logger = Logger();
+
+  /// Sign in with Google Account
+  /// Returns the authenticated User or null if sign-in fails
+  Future<User?> signInWithGoogle() async {
+    try {
+      // Trigger the Google Sign-In flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      
+      // User cancelled the sign-in
+      if (googleUser == null) return null;
+
+      // Obtain auth details from the Google Sign-In request
+      final GoogleSignInAuthentication googleAuth = 
+          await googleUser.authentication;
+      
+      // Create a new credential with the tokens
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase with the Google credential
+      final UserCredential userCredential = 
+          await _auth.signInWithCredential(credential);
+      User? user = userCredential.user;
+
+      // Check if user profile exists in Firestore
+      DocumentSnapshot userDoc = 
+          await _firestore.collection('users').doc(user!.uid).get();
+      
+      if (!userDoc.exists) {
+        // Create user profile for first-time users
+        await _firestore.collection('users').doc(user.uid).set({
+          'name': user.displayName ?? 'Sin nombre',
+          'surname': '',
+          'email': user.email,
+          'photoUrl': user.photoURL,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        _logger.i('New user profile created for: ${user.email}');
+      }
+
+      return user;
+    } catch (e) {
+      _logger.e('Error signing in with Google: $e');
+      return null;
+    }
+  }
+
+  /// Sign out from both Firebase and Google
+  Future<void> signOut() async {
+    await _auth.signOut();
+    await _googleSignIn.signOut();
+  }
+}
+```
+
+## Usage in UI
+
+Implement Google Sign-In button in your login screen:
+
+```dart lib/ui/screens/login_screen.dart
+import 'package:flutter/material.dart';
+import 'package:app_tareas/services/auth_service.dart';
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({Key? key}) : super(key: key);
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final AuthService _authService = AuthService();
+  bool _isLoading = false;
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final user = await _authService.signInWithGoogle();
+      
+      if (user != null && mounted) {
+        // Navigate to home screen
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        // User cancelled or sign-in failed
+        _showErrorDialog('Sign-in cancelled or failed');
+      }
+    } catch (e) {
+      _showErrorDialog('Error: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign-In Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: _isLoading
+            ? const CircularProgressIndicator()
+            : ElevatedButton.icon(
+                onPressed: _handleGoogleSignIn,
+                icon: Image.asset('assets/google_logo.png', height: 24),
+                label: const Text('Sign in with Google'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+```
+
+## Testing Google Sign-In
+
+<Steps>
+  <Step title="Test on Android Device/Emulator">
+    ```bash
+    flutter run -d <android-device>
+    ```
+    
+    Tap the Google Sign-In button and verify:
+    - Google account picker appears
+    - User can select an account
+    - Redirects to home screen after authentication
+  </Step>
+
+  <Step title="Test on Web">
+    ```bash
+    flutter run -d chrome
+    ```
+    
+    Verify the web sign-in flow works correctly in the browser.
+  </Step>
+
+  <Step title="Verify User Data in Firestore">
+    1. Open Firebase Console
+    2. Navigate to **Firestore Database**
+    3. Check the `users` collection
+    4. Verify user document was created with correct data
+  </Step>
+
+  <Step title="Test Sign Out">
+    Ensure signing out clears both Firebase and Google authentication states.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="PlatformException: sign_in_failed on Android">
+    **Cause:** SHA-1 fingerprint not configured or incorrect.
+    
+    **Solution:**
+    1. Generate SHA-1 using `keytool` or `./gradlew signingReport`
+    2. Add SHA-1 to Firebase Console
+    3. Download updated `google-services.json`
+    4. Rebuild the app completely (`flutter clean && flutter run`)
+  </Accordion>
+
+  <Accordion title="Error 10: Developer error on Android">
+    **Cause:** OAuth client ID mismatch or missing SHA-1.
+    
+    **Solution:**
+    1. Verify package name matches: `com.example.app_tareas`
+    2. Add both debug and release SHA-1 fingerprints
+    3. Wait 5-10 minutes for changes to propagate
+    4. Clear app data and retry
+  </Accordion>
+
+  <Accordion title="Google Sign-In returns null">
+    **Possible causes:**
+    - User cancelled sign-in
+    - Network connectivity issues
+    - Incorrect OAuth configuration
+    
+    **Solution:**
+    - Check logs for specific error messages
+    - Verify internet permission in AndroidManifest.xml
+    - Test with different Google accounts
+  </Accordion>
+
+  <Accordion title="Sign-in works in debug but not release">
+    **Cause:** Missing release SHA-1 fingerprint.
+    
+    **Solution:**
+    1. Get release SHA-1 from your release keystore
+    2. Add it to Firebase Console
+    3. Download updated `google-services.json`
+    4. Rebuild release APK/App Bundle
+  </Accordion>
+
+  <Accordion title="Web: popup_closed_by_user error">
+    **Cause:** User closed the sign-in popup.
+    
+    **Solution:** This is normal behavior. Handle it gracefully in your UI.
+  </Accordion>
+
+  <Accordion title="iOS: No such module 'GoogleSignIn'">
+    **Solution:**
+    ```bash
+    cd ios
+    pod install
+    cd ..
+    flutter clean
+    flutter run
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  **Production Checklist:**
+  - ✅ Add release SHA-1 fingerprint to Firebase
+  - ✅ Configure OAuth consent screen for production
+  - ✅ Update authorized domains in Firebase Authentication
+  - ✅ Test sign-in flow with release build
+  - ✅ Implement proper error handling
+  - ✅ Add privacy policy and terms of service links
+</Warning>
+
+## Security Best Practices
+
+1. **Never expose OAuth secrets:** Keep your OAuth client secrets secure
+2. **Use HTTPS:** Ensure all authorized domains use HTTPS
+3. **Validate user data:** Always validate and sanitize user data from Google
+4. **Implement rate limiting:** Prevent abuse by implementing rate limits
+5. **Handle token refresh:** Properly handle expired tokens and refresh logic
+6. **Log security events:** Monitor sign-in attempts and failures
+
+## Next Steps
+
+- [Set up Firebase Storage](/config/storage)
+- [Configure Firestore Security Rules](/config/firebase-setup#security-rules)
+- Implement additional authentication methods (Apple, Facebook, etc.)

@@ -1,0 +1,652 @@
+---
+title: 'Firebase Storage Setup'
+description: 'Configure Firebase Storage for profile image uploads and file management'
+---
+
+## Overview
+
+Firebase Storage provides secure file uploads and downloads with built-in security rules. This app uses Firebase Storage for profile image uploads.
+
+**Storage Bucket:** `aplicacion-trello.appspot.com`
+
+**Implementation Locations:**
+- AuthService: `lib/services/auth_service.dart:14`
+- Profile Editor: `lib/ui/screens/edit_profile_screen.dart:20`
+
+## Dependencies
+
+Ensure these packages are in your `pubspec.yaml`:
+
+```yaml pubspec.yaml
+dependencies:
+  firebase_storage: any
+  firebase_auth: any
+  image_picker: any  # For selecting images
+  logger: any        # For logging
+```
+
+Install dependencies:
+```bash
+flutter pub get
+```
+
+## Enabling Firebase Storage
+
+<Steps>
+  <Step title="Create Storage Bucket">
+    1. Open [Firebase Console](https://console.firebase.google.com/)
+    2. Select your project (`aplicacion-trello`)
+    3. Navigate to **Storage** in the left sidebar
+    4. Click **Get started**
+    5. Review security rules (start in test mode for development)
+    6. Choose a Cloud Storage location
+    7. Click **Done**
+  </Step>
+
+  <Step title="Configure Storage Bucket">
+    Your storage bucket URL will be:
+    ```
+    gs://aplicacion-trello.appspot.com
+    ```
+    
+    This is automatically configured in `firebase_options.dart`:
+    ```dart
+    storageBucket: 'aplicacion-trello.appspot.com'
+    ```
+  </Step>
+</Steps>
+
+## Storage Structure
+
+The app uses the following directory structure:
+
+```
+aplicacion-trello.appspot.com/
+├── profileImages/
+│   ├── {userId}.jpg          # User profile images (from registration)
+│   └── ...
+└── profile_images/
+    ├── {userId}               # User profile images (from profile editor)
+    └── ...
+```
+
+<Info>
+  Note: The app uses two different paths for profile images. Consider standardizing to a single path for consistency.
+</Info>
+
+## File Naming Conventions
+
+### Profile Images from Registration
+
+Used in `AuthService.saveUserProfile()` at line 35:
+
+```dart
+final storageRef = _storage.ref().child('profileImages/$uid.jpg');
+```
+
+- Path: `profileImages/{userId}.jpg`
+- Format: JPEG
+- Naming: User ID with `.jpg` extension
+- Use case: Initial profile image during user registration
+
+### Profile Images from Editor
+
+Used in `EditProfileScreen._updateProfile()` at line 84:
+
+```dart
+final ref = _storage.ref().child('profile_images/${user.uid}');
+```
+
+- Path: `profile_images/{userId}`
+- Format: Original format (no extension)
+- Naming: User ID without extension
+- Use case: Profile image updates
+
+## Implementation Examples
+
+### Uploading Profile Image (Registration)
+
+From `lib/services/auth_service.dart:31`:
+
+```dart lib/services/auth_service.dart
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:logger/logger.dart';
+
+class AuthService {
+  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final Logger _logger = Logger();
+
+  /// Save user profile with optional profile image
+  Future<void> saveUserProfile(
+    String uid, 
+    String name, 
+    String surname, 
+    File? profileImage
+  ) async {
+    try {
+      String? photoUrl;
+      
+      // Upload profile image if provided
+      if (profileImage != null) {
+        // Create storage reference with user ID
+        final storageRef = _storage.ref().child('profileImages/$uid.jpg');
+        
+        // Upload file to Firebase Storage
+        await storageRef.putFile(profileImage);
+        
+        // Get download URL for the uploaded file
+        photoUrl = await storageRef.getDownloadURL();
+        
+        _logger.i('Profile image uploaded successfully: $photoUrl');
+      }
+
+      // Save user profile to Firestore
+      await _firestore.collection('users').doc(uid).set({
+        'name': name,
+        'surname': surname,
+        'photoUrl': photoUrl,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      
+      _logger.i('User profile saved successfully');
+    } catch (e) {
+      _logger.e('Error saving user profile: $e');
+      rethrow;
+    }
+  }
+}
+```
+
+### Uploading Profile Image (Profile Editor)
+
+From `lib/ui/screens/edit_profile_screen.dart:68`:
+
+```dart lib/ui/screens/edit_profile_screen.dart
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:logger/logger.dart';
+
+class EditProfileScreenState extends State<EditProfileScreen> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final Logger logger = Logger();
+  
+  File? _profileImage;
+  String? _photoUrl;
+
+  /// Pick image from gallery
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,  // Limit image width
+      maxHeight: 1024, // Limit image height
+      imageQuality: 85, // Compress image (0-100)
+    );
+    
+    if (pickedFile != null) {
+      setState(() {
+        _profileImage = File(pickedFile.path);
+      });
+    }
+  }
+
+  /// Update user profile with new image
+  void _updateProfile() async {
+    User? user = _auth.currentUser;
+    if (user == null) return;
+    
+    try {
+      // Upload new profile image if selected
+      if (_profileImage != null) {
+        // Create storage reference
+        final ref = _storage.ref().child('profile_images/${user.uid}');
+        
+        // Upload file with progress tracking
+        final uploadTask = ref.putFile(_profileImage!);
+        
+        // Optional: Listen to upload progress
+        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+          logger.i('Upload progress: ${(progress * 100).toStringAsFixed(2)}%');
+        });
+        
+        // Wait for upload to complete
+        await uploadTask;
+        
+        // Get download URL
+        _photoUrl = await ref.getDownloadURL();
+        
+        // Update Firestore with new photo URL
+        await _firestore.collection('users').doc(user.uid).update({
+          'photoUrl': _photoUrl,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        
+        logger.i('Profile image updated successfully');
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      logger.e('Error updating profile: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating profile: $e')),
+        );
+      }
+    }
+  }
+}
+```
+
+## Image Optimization
+
+Optimize images before upload to reduce storage costs and improve performance:
+
+### Using ImagePicker Compression
+
+```dart
+final picker = ImagePicker();
+final pickedFile = await picker.pickImage(
+  source: ImageSource.gallery,
+  maxWidth: 1024,      // Resize to max 1024px width
+  maxHeight: 1024,     // Resize to max 1024px height
+  imageQuality: 85,    // Compress to 85% quality (0-100)
+);
+```
+
+### Advanced Compression with flutter_image_compress
+
+Add to `pubspec.yaml`:
+```yaml
+dependencies:
+  flutter_image_compress: any
+```
+
+Compress before upload:
+```dart
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+
+Future<File?> compressImage(File file) async {
+  final result = await FlutterImageCompress.compressAndGetFile(
+    file.absolute.path,
+    '${file.parent.path}/compressed_${file.path.split('/').last}',
+    quality: 85,
+    minWidth: 1024,
+    minHeight: 1024,
+  );
+  
+  return result != null ? File(result.path) : null;
+}
+```
+
+## Storage Security Rules
+
+Configure security rules in Firebase Console:
+
+### Production Rules
+
+```javascript storage.rules
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Helper function to validate file size (5MB max)
+    function isValidSize() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+    
+    // Helper function to validate image type
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Profile images from registration (profileImages/{userId}.jpg)
+    match /profileImages/{userId}.jpg {
+      // Anyone authenticated can read
+      allow read: if isAuthenticated();
+      
+      // Only owner can write, with validation
+      allow write: if isOwner(userId) 
+                   && isImage() 
+                   && isValidSize();
+    }
+    
+    // Profile images from editor (profile_images/{userId})
+    match /profile_images/{userId} {
+      // Anyone authenticated can read
+      allow read: if isAuthenticated();
+      
+      // Only owner can write, with validation
+      allow write: if isOwner(userId) 
+                   && isImage() 
+                   && isValidSize();
+    }
+    
+    // Fallback: deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
+
+<Warning>
+  Never use test mode rules in production:
+  ```javascript
+  // NEVER USE THIS IN PRODUCTION!
+  allow read, write: if true;
+  ```
+  Always restrict access based on authentication and ownership.
+</Warning>
+
+### Development Rules
+
+For development only:
+
+```javascript storage.rules
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      // Allow authenticated users during development
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+## Handling Upload Errors
+
+### Error Types and Solutions
+
+<CodeGroup>
+
+```dart Unauthorized Error
+try {
+  await storageRef.putFile(file);
+} on FirebaseException catch (e) {
+  if (e.code == 'unauthorized') {
+    // User doesn't have permission to upload
+    logger.e('Upload unauthorized: Check security rules');
+    showError('You do not have permission to upload files');
+  }
+}
+```
+
+```dart File Too Large
+try {
+  await storageRef.putFile(file);
+} on FirebaseException catch (e) {
+  if (e.code == 'storage/unauthorized') {
+    // File might be too large
+    logger.e('File rejected: Possibly too large');
+    showError('File is too large. Maximum size is 5MB');
+  }
+}
+```
+
+```dart Network Error
+try {
+  await storageRef.putFile(file);
+} on FirebaseException catch (e) {
+  if (e.code == 'storage/retry-limit-exceeded') {
+    logger.e('Network error: Upload failed after retries');
+    showError('Network error. Please check your connection');
+  }
+}
+```
+
+```dart Complete Error Handling
+Future<String?> uploadProfileImage(File file, String userId) async {
+  try {
+    // Validate file size before upload
+    final fileSize = await file.length();
+    if (fileSize > 5 * 1024 * 1024) {
+      throw Exception('File size exceeds 5MB limit');
+    }
+    
+    final ref = _storage.ref().child('profile_images/$userId');
+    await ref.putFile(file);
+    return await ref.getDownloadURL();
+    
+  } on FirebaseException catch (e) {
+    switch (e.code) {
+      case 'unauthorized':
+        logger.e('Unauthorized: ${e.message}');
+        throw Exception('You do not have permission to upload');
+      case 'canceled':
+        logger.w('Upload canceled by user');
+        return null;
+      case 'storage/retry-limit-exceeded':
+        logger.e('Network error: ${e.message}');
+        throw Exception('Network error. Please try again');
+      default:
+        logger.e('Upload error: ${e.code} - ${e.message}');
+        throw Exception('Upload failed: ${e.message}');
+    }
+  } catch (e) {
+    logger.e('Unexpected error: $e');
+    throw Exception('Upload failed: $e');
+  }
+}
+```
+
+</CodeGroup>
+
+## Displaying Profile Images
+
+### Using NetworkImage
+
+```dart
+CircleAvatar(
+  radius: 50,
+  backgroundImage: _photoUrl != null 
+    ? NetworkImage(_photoUrl!) 
+    : null,
+  child: _photoUrl == null 
+    ? const Icon(Icons.person, size: 50) 
+    : null,
+)
+```
+
+### Using CachedNetworkImage
+
+Add dependency:
+```yaml
+dependencies:
+  cached_network_image: any
+```
+
+Implementation:
+```dart
+import 'package:cached_network_image/cached_network_image.dart';
+
+CachedNetworkImage(
+  imageUrl: _photoUrl ?? '',
+  placeholder: (context, url) => const CircularProgressIndicator(),
+  errorWidget: (context, url, error) => const Icon(Icons.error),
+  imageBuilder: (context, imageProvider) => CircleAvatar(
+    radius: 50,
+    backgroundImage: imageProvider,
+  ),
+)
+```
+
+## Deleting Files
+
+### Delete Old Profile Image
+
+```dart
+Future<void> deleteOldProfileImage(String userId) async {
+  try {
+    // Delete from both possible locations
+    final ref1 = _storage.ref().child('profileImages/$userId.jpg');
+    final ref2 = _storage.ref().child('profile_images/$userId');
+    
+    await ref1.delete().catchError((e) {
+      logger.w('No file at profileImages/$userId.jpg');
+    });
+    
+    await ref2.delete().catchError((e) {
+      logger.w('No file at profile_images/$userId');
+    });
+    
+    logger.i('Old profile images deleted');
+  } catch (e) {
+    logger.e('Error deleting old images: $e');
+  }
+}
+```
+
+## Storage Costs and Limits
+
+### Firebase Storage Pricing (Free Tier)
+
+- **Storage:** 5 GB
+- **Downloads:** 1 GB/day
+- **Uploads:** 20,000/day
+
+### Cost Optimization Tips
+
+1. **Compress images** before upload (target 100-500KB per image)
+2. **Set size limits** in security rules (e.g., 5MB max)
+3. **Delete old files** when users update profile images
+4. **Use CDN caching** for frequently accessed images
+5. **Implement lazy loading** for image galleries
+
+## Testing Storage Upload
+
+<Steps>
+  <Step title="Test Image Selection">
+    ```dart
+    // Test ImagePicker integration
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    print('Image selected: ${image?.path}');
+    ```
+  </Step>
+
+  <Step title="Test Upload to Storage">
+    ```dart
+    // Test file upload
+    final file = File('path/to/test/image.jpg');
+    final ref = FirebaseStorage.instance.ref().child('test/upload.jpg');
+    await ref.putFile(file);
+    print('Upload successful');
+    ```
+  </Step>
+
+  <Step title="Test Download URL">
+    ```dart
+    // Test getting download URL
+    final url = await ref.getDownloadURL();
+    print('Download URL: $url');
+    ```
+  </Step>
+
+  <Step title="Verify in Firebase Console">
+    1. Open Firebase Console
+    2. Navigate to **Storage**
+    3. Check that files appear in correct directories
+    4. Click on a file to view details and download URL
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Firebase Storage: Object does not exist">
+    **Cause:** File path doesn't match or file was deleted.
+    
+    **Solution:**
+    - Verify the file path matches exactly
+    - Check Firebase Console to confirm file exists
+    - Ensure file was uploaded successfully
+  </Accordion>
+
+  <Accordion title="Upload fails with 'unauthorized' error">
+    **Cause:** Security rules deny access.
+    
+    **Solution:**
+    1. Check security rules in Firebase Console
+    2. Verify user is authenticated (`request.auth != null`)
+    3. Ensure userId matches authenticated user
+    4. Check file size and type restrictions
+  </Accordion>
+
+  <Accordion title="Network error during upload">
+    **Cause:** Poor network connectivity or timeout.
+    
+    **Solution:**
+    - Implement retry logic
+    - Show upload progress to user
+    - Reduce image size/quality
+    - Check network connectivity before upload
+  </Accordion>
+
+  <Accordion title="Image doesn't display after upload">
+    **Cause:** URL not saved correctly or cache issue.
+    
+    **Solution:**
+    - Verify download URL is saved to Firestore
+    - Check download URL in Firebase Console
+    - Clear image cache
+    - Add error handling to image widget
+  </Accordion>
+
+  <Accordion title="File size too large error">
+    **Cause:** Image exceeds size limits.
+    
+    **Solution:**
+    - Compress images before upload
+    - Use ImagePicker quality parameters
+    - Validate file size before upload
+    - Show clear error message to user
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+1. **Standardize file paths:** Use consistent naming conventions
+2. **Validate files:** Check size and type before upload
+3. **Compress images:** Reduce file size for faster uploads
+4. **Handle errors gracefully:** Provide clear error messages
+5. **Show upload progress:** Keep users informed during long uploads
+6. **Implement retry logic:** Handle network failures automatically
+7. **Clean up old files:** Delete replaced profile images
+8. **Use security rules:** Always validate permissions server-side
+9. **Cache images:** Use CachedNetworkImage for better performance
+10. **Monitor usage:** Track storage usage in Firebase Console
+
+## Next Steps
+
+- [Configure Firebase Security Rules](/config/firebase-setup#security-rules)
+- [Set up Google Sign-In](/config/google-signin)
+- Implement image cropping and editing
+- Add support for multiple file uploads

@@ -1,0 +1,388 @@
+---
+title: 'Team Management'
+description: 'Learn how to create teams, manage members, and organize collaborative workspaces in your Flutter app'
+---
+
+## Overview
+
+The team management system enables users to create collaborative workspaces where multiple members can work together on tasks. Teams have customizable colors, descriptions, and flexible member management.
+
+## Team Structure
+
+### Firestore Data Model
+
+Teams are stored in the `teams` collection with the following structure:
+
+```
+teams/{teamId}
+  ├─ name: string
+  ├─ description: string
+  ├─ userId: string (creator's ID)
+  ├─ createdAt: timestamp
+  ├─ color: number (hex color value)
+  └─ members: array<string> (array of user IDs)
+```
+
+<Note>
+  The `userId` field identifies the team creator, who has special permissions like deleting the team. The `members` array includes all team members, including the creator.
+</Note>
+
+## Creating Teams
+
+### Team Creation Flow
+
+<Steps>
+  <Step title="Provide Team Details">
+    Enter team name and project description through the AddTeamScreen form.
+  </Step>
+  
+  <Step title="Select Team Color">
+    Choose from 20 predefined colors to visually distinguish the team.
+  </Step>
+  
+  <Step title="Add Members">
+    Search for users by name and add them to the team.
+  </Step>
+  
+  <Step title="Create Team">
+    Save the team to Firestore with all selected members.
+  </Step>
+</Steps>
+
+**Code Example from TeamService:**
+
+```dart lib/services/team_service.dart
+Future<String?> createTeam(
+  String teamName, 
+  String projectDescription, 
+  Color color, 
+  List<String> selectedMembers
+) async {
+  try {
+    User? currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      DocumentReference docRef = await _firestore.collection('teams').add({
+        'name': teamName,
+        'description': projectDescription,
+        'userId': currentUser.uid,
+        'createdAt': FieldValue.serverTimestamp(),
+        'color': color.value, // Store color as hexadecimal value
+        'members': selectedMembers, // Add members when creating team
+      });
+      return docRef.id; // Return the created document ID
+    }
+  } catch (e) {
+    _logger.e('Error al crear el equipo: $e');
+    _logger.i('Creando equipo con los siguientes miembros: $selectedMembers');
+  }
+  return null;
+}
+```
+
+### Full Team Creation Implementation
+
+**From AddTeamScreen:**
+
+```dart lib/ui/screens/add_team_screen.dart
+Future<void> _createTeam() async {
+  if (_teamName.isNotEmpty && _projectDescription.isNotEmpty) {
+    try {
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        // Get list of selected member IDs
+        List<String> allMembers = _selectedMembers.map((member) => member.uid).toList();
+
+        // Ensure current user is included in members
+        if (!allMembers.contains(currentUser.uid)) {
+          allMembers.add(currentUser.uid);
+        }
+        
+        _logger.i('Miembros seleccionados antes de crear el equipo: $allMembers');
+
+        // Create the team
+        final teamId = await _teamService.createTeam(
+          _teamName,
+          _projectDescription,
+          _selectedColor,
+          allMembers,
+        );
+
+        if (teamId != null) {
+          if (mounted) {
+            Navigator.pop(context, true);
+          }
+        } else {
+          throw Exception('Error al crear el equipo: ID no generado');
+        }
+      }
+    } catch (e) {
+      _logger.e('Error creating team: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al crear el equipo')),
+        );
+      }
+    }
+  }
+}
+```
+
+<Warning>
+  The team creator is automatically added to the members array if not already included. This ensures the creator always has access to the team they created.
+</Warning>
+
+## Managing Team Members
+
+### Adding Members to Existing Teams
+
+Members can be added to teams after creation using the AddMemberDialog:
+
+```dart lib/ui/screens/add_task_screen.dart
+void _addMemberToTeam(String userId) async {
+  try {
+    if (!selectedMembers.contains(userId)) {
+      await _firestore.collection('teams').doc(widget.team['id']).update({
+        'members': FieldValue.arrayUnion([userId])
+      });
+      _fetchTeamMembers(); // Refresh member list
+    }
+  } catch (e) {
+    logger.e('Error adding member to team: $e');
+  }
+}
+```
+
+### Fetching Team Members
+
+Retrieve detailed information about all team members:
+
+```dart lib/ui/screens/add_task_screen.dart
+Future<void> _fetchTeamMembers() async {
+  try {
+    final snapshot = await _firestore.collection('teams').doc(widget.team['id']).get();
+
+    if (snapshot.exists) {
+      final memberIds = List<String>.from(snapshot.data()?['members'] ?? []);
+      final memberData = await Future.wait(memberIds.map((id) async {
+        final userDoc = await _firestore.collection('users').doc(id).get();
+        return {
+          'id': id,
+          'name': userDoc['name'],
+          'photoUrl': userDoc.data()?['photoUrl'] ?? '',
+        };
+      }));
+
+      setState(() {
+        teamMembers = memberData;
+      });
+    }
+  } catch (e) {
+    logger.e('Error fetching team members: $e');
+  }
+}
+```
+
+### Searching for Users
+
+The team creation screen includes user search functionality:
+
+```dart lib/ui/screens/add_team_screen.dart
+void _searchUsers() async {
+  if (_searchQuery.isNotEmpty) {
+    final results = await _authService.searchUsersByNameOrEmail(_searchQuery);
+    setState(() {
+      _searchResults = results;
+    });
+  } else {
+    setState(() {
+      _searchResults = [];
+    });
+  }
+}
+```
+
+## Team Permissions
+
+### Creator Permissions
+
+Only the team creator (identified by `userId`) can:
+- Delete the team
+- Access administrative functions
+
+**Permission Check Example:**
+
+```dart lib/ui/screens/task_screen.dart
+final bool isCreator = team['userId'] == _currentUser!.uid;
+
+IconButton(
+  icon: const CircleAvatar(
+    radius: 24,
+    backgroundColor: Color(0xFFF28C8C),
+    child: Icon(Icons.delete, color: Colors.white, size: 24),
+  ),
+  onPressed: isCreator ? () async {
+    bool confirmDelete = await showDialog(...);
+    if (confirmDelete) {
+      await _deleteTeam(team['id']);
+    }
+  } : null,
+)
+```
+
+### Member Permissions
+
+All team members can:
+- View team details
+- Create tasks within the team
+- View other team members
+- Participate in team activities
+
+<Note>
+  Team members are displayed with their profile photos and names throughout the app for easy identification.
+</Note>
+
+## Deleting Teams
+
+### Delete Team Implementation
+
+```dart lib/ui/screens/task_screen.dart
+Future<void> _deleteTeam(String? teamId) async {
+  if (teamId == null) {
+    _logger.e('Team ID is null, cannot delete team.');
+    return;
+  }
+
+  try {
+    await _firestore.collection('teams').doc(teamId).delete();
+    _fetchTeams(); // Refresh team list
+  } catch (e) {
+    _logger.e('Error deleting team: $e');
+  }
+}
+```
+
+### Delete Confirmation Dialog
+
+The app displays a confirmation dialog before deleting teams:
+
+```dart
+bool confirmDelete = await showDialog(
+  context: context,
+  builder: (BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircleAvatar(
+              radius: 40,
+              backgroundColor: Color(0xFFFF9393),
+              child: Icon(Icons.delete, size: 40, color: Colors.white),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '¿Desea eliminar el equipo?',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Recuerda que el equipo eliminado, no se podrá recuperar.',
+              textAlign: TextAlign.center,
+            ),
+            // Accept and Cancel buttons...
+          ],
+        ),
+      ),
+    );
+  },
+);
+```
+
+<Warning>
+  Deleting a team is permanent and cannot be undone. All associated tasks should be handled appropriately before deletion.
+</Warning>
+
+## Team Colors
+
+Teams can be customized with 20 predefined colors for visual organization:
+
+```dart lib/ui/screens/add_team_screen.dart
+for (Color color in [
+  const Color(0xFF79ADDC),
+  const Color(0xFFFFC09F),
+  const Color(0xFFFFEE93),
+  const Color(0xFFFCF5C7),
+  const Color(0xFFADF7B6),
+  const Color(0xFFD4AFB9),
+  const Color(0xFFD1CFE2),
+  // ... more colors
+])
+  GestureDetector(
+    onTap: () => _selectColor(color),
+    child: Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+      ),
+      child: _selectedColor == color
+        ? const Icon(Icons.check, color: Colors.white)
+        : null,
+    ),
+  ),
+```
+
+## Retrieving User Teams
+
+Fetch all teams where the current user is a member:
+
+```dart lib/ui/screens/task_screen.dart
+Future<void> _fetchTeams() async {
+  try {
+    if (_currentUser != null) {
+      final snapshot = await _firestore.collection('teams').get();
+
+      setState(() {
+        _teams = snapshot.docs.where((doc) {
+          var data = doc.data();
+          List<dynamic>? members = data['members'];
+          return members != null && members.contains(_currentUser!.uid);
+        }).map((doc) {
+          return {
+            'id': doc.id,
+            ...doc.data(),
+          };
+        }).toList();
+      });
+    }
+  } catch (e) {
+    _logger.e('Error fetching teams: $e');
+  }
+}
+```
+
+## Real-time Team Updates
+
+Teams support real-time synchronization through Firestore. When team data changes, all members see updates immediately without manual refresh.
+
+## Best Practices
+
+1. **Member Validation**: Always check if a user is already a member before adding them
+2. **Creator Tracking**: Store the creator's UID for permission management
+3. **Color Coding**: Use distinct colors to help users quickly identify teams
+4. **Error Handling**: Implement comprehensive error handling for all team operations
+5. **Member Limits**: Consider implementing member limits for team performance
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Task Management" icon="tasks" href="/features/task-management">
+    Learn how to create and manage tasks within teams
+  </Card>
+  <Card title="User Search" icon="search" href="/features/user-profiles">
+    Discover how user search functionality works
+  </Card>
+</CardGroup>

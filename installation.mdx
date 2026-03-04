@@ -1,0 +1,533 @@
+---
+title: Installation
+description: Detailed installation guide for Trello App across all platforms
+---
+
+## System Requirements
+
+### Minimum Requirements
+
+- **Flutter SDK**: 3.5.0 or higher
+- **Dart SDK**: ^3.5.0 (included with Flutter)
+- **Operating System**:
+  - Windows 10 or higher
+  - macOS 10.14 or higher
+  - Linux (64-bit)
+
+### Platform-Specific Requirements
+
+#### Android
+- Android SDK 21 (Lollipop) or higher
+- Android Studio 2022.1 or higher
+- Java Development Kit (JDK) 11 or higher
+- Minimum 8GB RAM recommended
+
+#### iOS
+- macOS operating system
+- Xcode 12.0 or higher
+- iOS 11.0 or higher target
+- CocoaPods 1.10 or higher
+- Valid Apple Developer account (for device testing)
+
+#### Web
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+- Web server for hosting (optional)
+
+#### Desktop (Windows/macOS/Linux)
+- Platform-specific build tools
+- Windows: Visual Studio 2022 or higher
+- macOS: Xcode command-line tools
+- Linux: GTK 3.0+ development libraries
+
+<Warning>
+iOS development requires a Mac. You cannot build iOS apps on Windows or Linux.
+</Warning>
+
+## Flutter SDK Installation
+
+If you haven't installed Flutter yet, follow these steps:
+
+<Steps>
+
+### Download Flutter
+
+Visit [flutter.dev](https://flutter.dev/docs/get-started/install) and download the Flutter SDK for your operating system.
+
+### Extract and Add to PATH
+
+**Windows:**
+```bash
+# Extract to C:\src\flutter
+# Add to PATH environment variable
+C:\src\flutter\bin
+```
+
+**macOS/Linux:**
+```bash
+cd ~/development
+unzip flutter_sdk.zip
+export PATH="$PATH:`pwd`/flutter/bin"
+# Add to ~/.bashrc or ~/.zshrc for persistence
+```
+
+### Verify Installation
+
+Run Flutter Doctor to check for any missing dependencies:
+
+```bash
+flutter doctor -v
+```
+
+Address any issues identified by Flutter Doctor before proceeding.
+
+</Steps>
+
+## Project Dependencies
+
+The Trello App uses the following dependencies defined in `pubspec.yaml`:
+
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI Components
+  cupertino_icons: any
+  
+  # Firebase Services
+  firebase_core: any        # Firebase initialization
+  firebase_auth: any        # Authentication
+  cloud_firestore: any      # NoSQL database
+  firebase_storage: any     # File storage
+  
+  # Third-party Authentication
+  google_sign_in: any       # Google OAuth
+  
+  # Utilities
+  logger: any               # Logging and debugging
+  image_picker: any         # Image selection
+  intl: any                 # Date formatting
+  flutter_local_notifications: any  # Notifications
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: any        # Code analysis
+```
+
+### Install Dependencies
+
+After cloning the repository:
+
+```bash
+cd app_tareas
+flutter pub get
+```
+
+<Note>
+The `any` version constraint means the latest compatible version will be installed. For production, consider pinning specific versions.
+</Note>
+
+## Firebase Configuration
+
+### Step 1: Create Firebase Project
+
+1. Navigate to [Firebase Console](https://console.firebase.google.com/)
+2. Click "Add Project" or select existing project
+3. Enter project name (e.g., "trello-app-production")
+4. Enable Google Analytics (optional but recommended)
+5. Complete project creation
+
+### Step 2: Enable Firebase Services
+
+#### Authentication
+
+1. In Firebase Console, go to **Authentication** → **Sign-in method**
+2. Enable **Email/Password**:
+   - Toggle "Email/Password" to enabled
+   - Save changes
+3. Enable **Google**:
+   - Toggle "Google" to enabled
+   - Enter support email
+   - Save changes
+
+#### Cloud Firestore
+
+1. Go to **Firestore Database** → **Create database**
+2. Choose starting mode:
+   - **Test mode**: Open access (development only)
+   - **Production mode**: Secure with rules (recommended)
+3. Select database location (closest to your users)
+4. Click "Enable"
+
+#### Storage
+
+1. Go to **Storage** → **Get started**
+2. Review security rules
+3. Choose storage location
+4. Click "Done"
+
+<Warning>
+Default Firebase Security Rules allow open access. Update them before deploying to production:
+
+```javascript
+// Firestore Security Rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
+    }
+    match /teams/{teamId} {
+      allow read, write: if request.auth != null;
+    }
+    match /tasks/{taskId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+// Storage Security Rules
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /profileImages/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
+    }
+  }
+}
+```
+</Warning>
+
+### Step 3: Register Your App
+
+#### Android App
+
+1. In Firebase Console, click the Android icon to add Android app
+2. Enter Android package name: `com.example.app_tareas` (check `android/app/build.gradle` for actual package)
+3. Optional: Add app nickname and SHA-1 certificate
+4. Download `google-services.json`
+5. Place file in `android/app/google-services.json`
+6. Follow the setup instructions to modify Gradle files (usually auto-configured)
+
+**Get SHA-1 certificate for Google Sign-In:**
+
+```bash
+cd android
+./gradlew signingReport
+# Copy the SHA-1 from the debug or release variant
+```
+
+#### iOS App
+
+1. Click the iOS icon to add iOS app
+2. Enter iOS bundle ID: Check `ios/Runner.xcodeproj` or `ios/Runner/Info.plist`
+3. Optional: Add app nickname
+4. Download `GoogleService-Info.plist`
+5. Open `ios/Runner.xcworkspace` in Xcode
+6. Drag `GoogleService-Info.plist` into the Runner folder
+7. Ensure "Copy items if needed" is checked
+
+**Update Info.plist for Google Sign-In:**
+
+```xml
+<!-- Add to ios/Runner/Info.plist -->
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleTypeRole</key>
+    <string>Editor</string>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>com.googleusercontent.apps.YOUR-REVERSED-CLIENT-ID</string>
+    </array>
+  </dict>
+</array>
+```
+
+#### Web App
+
+1. Click the Web icon to add Web app
+2. Enter app nickname
+3. Copy the Firebase configuration object
+4. Update `lib/firebase_options.dart` with your configuration:
+
+```dart
+class DefaultFirebaseOptions {
+  static FirebaseOptions get currentPlatform {
+    if (kIsWeb) {
+      return web;
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return android;
+      case TargetPlatform.iOS:
+        return ios;
+      default:
+        throw UnsupportedError('Unsupported platform');
+    }
+  }
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'YOUR-WEB-API-KEY',
+    appId: 'YOUR-WEB-APP-ID',
+    messagingSenderId: 'YOUR-SENDER-ID',
+    projectId: 'YOUR-PROJECT-ID',
+    authDomain: 'YOUR-PROJECT-ID.firebaseapp.com',
+    storageBucket: 'YOUR-PROJECT-ID.appspot.com',
+  );
+
+  // Android and iOS configurations...
+}
+```
+
+## Google Sign-In Setup
+
+### Android Configuration
+
+1. Ensure `google-services.json` is properly placed
+2. SHA-1 certificate is registered in Firebase Console
+3. Google Sign-In is enabled in Firebase Authentication
+
+### iOS Configuration
+
+1. Add `GoogleService-Info.plist` to Xcode project
+2. Update `Info.plist` with reversed client ID (found in `GoogleService-Info.plist`):
+
+```xml
+<key>CFBundleURLSchemes</key>
+<array>
+  <string>com.googleusercontent.apps.123456789-abcdefg</string>
+</array>
+```
+
+3. Run `pod install` in the ios directory:
+
+```bash
+cd ios
+pod install
+cd ..
+```
+
+### Web Configuration
+
+1. Add authorized domains in Firebase Console:
+   - Go to **Authentication** → **Settings** → **Authorized domains**
+   - Add your domain (e.g., `localhost` for development)
+
+2. Create OAuth 2.0 Client ID in Google Cloud Console:
+   - Visit [Google Cloud Console](https://console.cloud.google.com/)
+   - Navigate to APIs & Services → Credentials
+   - Create OAuth 2.0 Client ID for Web application
+   - Add authorized JavaScript origins (e.g., `http://localhost`)
+
+<Tip>
+For local development on web, use `http://localhost:5000` or your preferred port. Make sure it's added to authorized origins.
+</Tip>
+
+## Platform-Specific Setup
+
+### Android
+
+#### Update Gradle Files
+
+Ensure `android/app/build.gradle` has minimum SDK version:
+
+```gradle
+android {
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 33
+    }
+}
+```
+
+#### Permissions
+
+The app requires these permissions (already in `AndroidManifest.xml`):
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.CAMERA" />
+```
+
+### iOS
+
+#### Update Podfile
+
+Ensure `ios/Podfile` has minimum version:
+
+```ruby
+platform :ios, '11.0'
+```
+
+#### Run Pod Install
+
+```bash
+cd ios
+pod install
+cd ..
+```
+
+#### Permissions
+
+Update `Info.plist` with required permissions:
+
+```xml
+<key>NSPhotoLibraryUsageDescription</key>
+<string>We need access to your photo library to select profile pictures</string>
+<key>NSCameraUsageDescription</key>
+<string>We need camera access to take profile pictures</string>
+```
+
+### Web
+
+#### Update index.html
+
+Ensure Firebase is initialized in `web/index.html`:
+
+```html
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js"></script>
+```
+
+## Build and Run
+
+### Development Mode
+
+```bash
+# Android/iOS with connected device
+flutter run
+
+# Web (Chrome)
+flutter run -d chrome
+
+# Specific device
+flutter run -d <device-id>
+```
+
+### Release Build
+
+**Android APK:**
+```bash
+flutter build apk --release
+# Output: build/app/outputs/flutter-apk/app-release.apk
+```
+
+**Android App Bundle:**
+```bash
+flutter build appbundle --release
+# Output: build/app/outputs/bundle/release/app-release.aab
+```
+
+**iOS:**
+```bash
+flutter build ios --release
+# Then archive in Xcode
+```
+
+**Web:**
+```bash
+flutter build web --release
+# Output: build/web/
+```
+
+## Troubleshooting Common Issues
+
+### Firebase Initialization Failed
+
+**Problem**: `[core/no-app] No Firebase App '[DEFAULT]' has been created`
+
+**Solution**:
+- Ensure `Firebase.initializeApp()` is called in `main()` before `runApp()`
+- Verify `google-services.json` (Android) or `GoogleService-Info.plist` (iOS) is in correct location
+- Check that Firebase configuration matches your project
+
+### Google Sign-In Not Working
+
+**Problem**: Google Sign-In returns null or fails
+
+**Solution**:
+- **Android**: Verify SHA-1 certificate is registered in Firebase Console
+- **iOS**: Check reversed client ID in `Info.plist`
+- **Web**: Ensure domain is in authorized origins
+- Verify Google Sign-In is enabled in Firebase Authentication
+
+### Image Picker Crashes
+
+**Problem**: App crashes when selecting images
+
+**Solution**:
+- **Android**: Check permissions in `AndroidManifest.xml`
+- **iOS**: Add camera/photo library usage descriptions to `Info.plist`
+- Test on physical device (some emulators don't support camera)
+
+### Firestore Permission Denied
+
+**Problem**: `Permission denied` when reading/writing Firestore
+
+**Solution**:
+- Review Firestore Security Rules
+- Ensure user is authenticated before accessing data
+- Update rules to match your data structure:
+
+```javascript
+match /users/{userId} {
+  allow read, write: if request.auth.uid == userId;
+}
+```
+
+### Build Errors on iOS
+
+**Problem**: CocoaPods or Xcode build failures
+
+**Solution**:
+```bash
+cd ios
+rm -rf Pods Podfile.lock
+pod install --repo-update
+cd ..
+flutter clean
+flutter pub get
+flutter build ios
+```
+
+### Gradle Build Failures (Android)
+
+**Problem**: Gradle sync or build errors
+
+**Solution**:
+```bash
+cd android
+./gradlew clean
+cd ..
+flutter clean
+flutter pub get
+flutter build apk
+```
+
+<Note>
+If you continue to experience issues, check the Flutter and Firebase documentation for platform-specific troubleshooting steps.
+</Note>
+
+## Next Steps
+
+Once installation is complete:
+
+1. Review the [Quickstart Guide](/quickstart) for first-time setup
+2. Explore the source code in `lib/` to understand the architecture
+3. Customize the app for your needs
+4. Configure production Firebase Security Rules
+5. Set up CI/CD for automated builds
+
+<Tip>
+For production deployment, remember to:
+- Update Firebase Security Rules
+- Use environment-specific Firebase projects (dev, staging, production)
+- Enable Firebase Analytics and Crashlytics
+- Configure app signing for release builds
+</Tip>

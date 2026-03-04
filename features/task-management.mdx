@@ -1,0 +1,583 @@
+---
+title: 'Task Management'
+description: 'Learn how to create, update, assign, and track tasks within teams using Firestore real-time updates'
+---
+
+## Overview
+
+The task management system enables team members to create, assign, and track tasks with real-time synchronization. Tasks include detailed properties like descriptions, dates, status indicators, and assigned members.
+
+## Task Data Structure
+
+### Firestore Task Document
+
+```
+tasks/{taskId}
+  ├─ name: string
+  ├─ description: string
+  ├─ teamId: string
+  ├─ userId: string (creator's ID)
+  ├─ responsibleId: string (assigned member)
+  ├─ status: string
+  ├─ startDate: timestamp
+  └─ endDate: timestamp
+```
+
+<Note>
+  Tasks are linked to teams via `teamId` and can be assigned to specific members using `responsibleId`. The `userId` tracks who created the task.
+</Note>
+
+## Task Properties
+
+### Core Task Fields
+
+| Property | Type | Description |
+|----------|------|-------------|
+| **name** | string | Task title (required) |
+| **description** | string | Detailed task description |
+| **teamId** | string | Reference to parent team |
+| **userId** | string | Task creator's user ID |
+| **responsibleId** | string | Assigned team member's ID |
+| **status** | string | Current task status |
+| **startDate** | timestamp | Task start date |
+| **endDate** | timestamp | Task due date |
+
+## Task Statuses
+
+Tasks can have three different status values:
+
+<CardGroup cols={3}>
+  <Card title="No Iniciado" icon="circle" color="#ef4444">
+    Task has not been started yet
+  </Card>
+  <Card title="En desarrollo" icon="circle" color="#f97316">
+    Task is currently in progress
+  </Card>
+  <Card title="Finalizado" icon="circle" color="#22c55e">
+    Task has been completed
+  </Card>
+</CardGroup>
+
+## Creating Tasks
+
+### Task Creation Flow
+
+<Steps>
+  <Step title="Open AddTaskWidget">
+    Access the task creation dialog from the team screen.
+  </Step>
+  
+  <Step title="Enter Task Details">
+    Provide task title, description, dates, and status.
+  </Step>
+  
+  <Step title="Assign Responsible Member">
+    Select a team member from the dropdown to assign the task.
+  </Step>
+  
+  <Step title="Save Task">
+    Submit the task to Firestore with all properties.
+  </Step>
+</Steps>
+
+**Code Example from AddTaskWidget:**
+
+```dart lib/ui/screens/widgets/add_task_widget.dart
+void _saveTask() async {
+  if (newTask.isNotEmpty) {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        await _firestore.collection('tasks').add({
+          'name': newTask,
+          'description': newDescription,
+          'teamId': widget.team['id'],
+          'userId': user.uid,
+          'responsibleId': selectedResponsible,
+          'status': taskStatus,
+          'startDate': startDate,
+          'endDate': endDate,
+        });
+
+        widget.onTaskAdded();
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      logger.e('Error adding task: $e');
+    }
+  }
+}
+```
+
+### Task Creation UI Components
+
+#### Title and Description Fields
+
+```dart
+TextField(
+  onChanged: (value) {
+    newTask = value;
+  },
+  decoration: const InputDecoration(
+    hintText: "Título de la tarea",
+    border: OutlineInputBorder(),
+    filled: true,
+    fillColor: Color(0xFFFFF59D),
+  ),
+)
+
+TextField(
+  maxLines: 3,
+  onChanged: (value) {
+    newDescription = value;
+  },
+  decoration: const InputDecoration(
+    hintText: "Ingrese la descripción",
+    filled: true,
+    fillColor: Color(0xFFFFF59D),
+  ),
+)
+```
+
+#### Responsible Member Dropdown
+
+```dart lib/ui/screens/widgets/add_task_widget.dart
+DropdownButton<String>(
+  value: selectedResponsible,
+  hint: const Text('Selecciona un responsable'),
+  onChanged: (String? newValue) {
+    setState(() {
+      selectedResponsible = newValue;
+    });
+  },
+  items: widget.teamMembers.map<DropdownMenuItem<String>>((member) {
+    return DropdownMenuItem<String>(
+      value: member['id'],
+      child: Text(member['name']),
+    );
+  }).toList(),
+  isExpanded: true,
+)
+```
+
+#### Status Selection Component
+
+```dart lib/ui/screens/widgets/add_task_widget.dart
+class StatusIndicator extends StatelessWidget {
+  final String status;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.3) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10.0),
+          border: Border.all(color: color),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.circle, color: color, size: 12),
+            const SizedBox(width: 8),
+            Text(status, style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+#### Date Selection Component
+
+```dart lib/ui/screens/widgets/add_task_widget.dart
+class DateField extends StatelessWidget {
+  final String label;
+  final DateTime? selectedDate;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Container(
+            padding: const EdgeInsets.all(8.0),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF59D),
+              borderRadius: BorderRadius.circular(10.0),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  selectedDate != null
+                    ? "${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}"
+                    : 'Seleccionar',
+                ),
+                const Icon(Icons.access_time, size: 16),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+<Note>
+  The date picker uses Flutter's built-in `showDatePicker` widget for a native date selection experience.
+</Note>
+
+## Fetching Tasks
+
+Retrieve tasks for a specific team and user:
+
+```dart lib/ui/screens/add_task_screen.dart
+Future<void> _fetchTasks() async {
+  try {
+    final user = _auth.currentUser;
+    if (user != null) {
+      final snapshot = await _firestore
+          .collection('tasks')
+          .where('teamId', isEqualTo: widget.team['id'])
+          .where('responsibleId', isEqualTo: user.uid)
+          .get();
+
+      setState(() {
+        tasks = snapshot.docs.map((doc) => {
+          'id': doc.id,
+          'name': doc['name'],
+          'description': doc['description'],
+          'startDate': doc['startDate']?.toDate(),
+          'endDate': doc['endDate']?.toDate(),
+          'status': doc['status'],
+        }).toList();
+      });
+    }
+  } catch (e) {
+    logger.e('Error fetching tasks: $e');
+  }
+}
+```
+
+## Updating Tasks
+
+Tasks can be updated with new information, including status changes:
+
+```dart lib/ui/screens/add_task_screen.dart
+void _updateTask(
+  String taskId, 
+  String currentName, 
+  String currentDescription,
+  DateTime? startDate, 
+  DateTime? endDate, 
+  String? currentStatus
+) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      String updatedTask = currentName;
+      String updatedDescription = currentDescription;
+      DateTime? updatedStartDate = startDate;
+      DateTime? updatedEndDate = endDate;
+      String updatedStatus = currentStatus ?? 'No Iniciado';
+
+      return Dialog(
+        child: Column(
+          children: [
+            // Update form fields...
+            TextButton(
+              onPressed: () async {
+                if (updatedTask.isNotEmpty) {
+                  try {
+                    await _firestore.collection('tasks').doc(taskId).update({
+                      'name': updatedTask,
+                      'description': updatedDescription,
+                      'startDate': updatedStartDate,
+                      'endDate': updatedEndDate,
+                      'status': updatedStatus,
+                    });
+                    
+                    setState(() {
+                      final index = tasks.indexWhere((task) => task['id'] == taskId);
+                      tasks[index]['name'] = updatedTask;
+                      tasks[index]['description'] = updatedDescription;
+                      tasks[index]['startDate'] = updatedStartDate;
+                      tasks[index]['endDate'] = updatedEndDate;
+                      tasks[index]['status'] = updatedStatus;
+                    });
+                  } catch (e) {
+                    logger.e('Error updating task: $e');
+                  }
+                }
+                Navigator.of(context).pop();
+              },
+              child: const Text('Actualizar'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+```
+
+### Status Update Buttons
+
+```dart
+Row(
+  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  children: [
+    // No Iniciado
+    TextButton(
+      style: TextButton.styleFrom(
+        backgroundColor: updatedStatus == 'No Iniciado' ? Colors.red : Colors.transparent,
+        side: const BorderSide(color: Colors.red),
+      ),
+      onPressed: () {
+        setState(() {
+          updatedStatus = 'No Iniciado';
+        });
+      },
+      child: const Text('No Iniciado'),
+    ),
+    // En desarrollo
+    TextButton(
+      style: TextButton.styleFrom(
+        backgroundColor: updatedStatus == 'En desarrollo' ? Colors.orange : Colors.transparent,
+        side: const BorderSide(color: Colors.orange),
+      ),
+      onPressed: () {
+        setState(() {
+          updatedStatus = 'En desarrollo';
+        });
+      },
+      child: const Text('En desarrollo'),
+    ),
+    // Finalizado
+    TextButton(
+      style: TextButton.styleFrom(
+        backgroundColor: updatedStatus == 'Finalizado' ? Colors.green : Colors.transparent,
+        side: const BorderSide(color: Colors.green),
+      ),
+      onPressed: () {
+        setState(() {
+          updatedStatus = 'Finalizado';
+        });
+      },
+      child: const Text('Finalizado'),
+    ),
+  ],
+)
+```
+
+## Deleting Tasks
+
+### Delete Task Function
+
+```dart lib/ui/screens/add_task_screen.dart
+Future<void> _deleteTask(String taskId) async {
+  try {
+    await _firestore.collection('tasks').doc(taskId).delete();
+
+    setState(() {
+      tasks.removeWhere((task) => task['id'] == taskId);
+    });
+  } catch (e) {
+    logger.e('Error deleting task: $e');
+  }
+}
+```
+
+### Delete Confirmation Dialog
+
+```dart lib/ui/screens/add_task_screen.dart
+Future<void> _showDeleteTaskWarning(String taskId) async {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+        title: const Column(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: Color(0xFFFF9393),
+              child: Icon(Icons.delete, color: Colors.white),
+            ),
+            SizedBox(height: 10),
+            Text('¿Desea eliminar la tarea?'),
+          ],
+        ),
+        content: const Text(
+          'Recuerda que la tarea eliminada no se podrá recuperar.',
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await _deleteTask(taskId);
+              if (context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: const Text('Aceptar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      );
+    },
+  );
+}
+```
+
+<Warning>
+  Deleted tasks cannot be recovered. Always show a confirmation dialog before deletion.
+</Warning>
+
+## Viewing Assigned Members
+
+Display information about the member assigned to a task:
+
+```dart lib/ui/screens/add_task_screen.dart
+void _showAssignedMembersDialog(String? assignedMemberId) async {
+  if (assignedMemberId == null || assignedMemberId.isEmpty) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Miembro Asignado'),
+        content: const Text('No hay miembro asignado a esta tarea.'),
+      ),
+    );
+    return;
+  }
+
+  try {
+    final userDoc = await _firestore.collection('users').doc(assignedMemberId).get();
+    if (userDoc.exists) {
+      final memberName = userDoc['name'];
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Miembro Asignado'),
+          content: Text('El miembro asignado es: $memberName'),
+        ),
+      );
+    }
+  } catch (e) {
+    logger.e('Error fetching assigned member: $e');
+  }
+}
+```
+
+## Real-time Updates with Firestore
+
+Firestore provides real-time synchronization for tasks. When a task is created, updated, or deleted, all team members see the changes immediately.
+
+### Real-time Listening Example
+
+To implement real-time updates, replace `.get()` with `.snapshots()`:
+
+```dart
+Stream<List<Map<String, dynamic>>> getTeamTasksStream(String teamId) {
+  return _firestore
+      .collection('tasks')
+      .where('teamId', isEqualTo: teamId)
+      .snapshots()
+      .map((snapshot) => snapshot.docs.map((doc) => {
+            'id': doc.id,
+            ...doc.data(),
+          }).toList());
+}
+```
+
+### Using StreamBuilder
+
+```dart
+StreamBuilder<List<Map<String, dynamic>>>(
+  stream: getTeamTasksStream(teamId),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return CircularProgressIndicator();
+    }
+    
+    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+      return Text('No hay tareas');
+    }
+    
+    final tasks = snapshot.data!;
+    return ListView.builder(
+      itemCount: tasks.length,
+      itemBuilder: (context, index) => TaskTile(task: tasks[index]),
+    );
+  },
+)
+```
+
+<Note>
+  Real-time updates ensure that all team members see task changes instantly without manual refresh, improving collaboration and reducing conflicts.
+</Note>
+
+## Task Display in UI
+
+Tasks are displayed in a list with edit and delete actions:
+
+```dart lib/ui/screens/add_task_screen.dart
+ListTile(
+  title: Text(tasks[index]['name']),
+  subtitle: Text(tasks[index]['description'] ?? ''),
+  onTap: () => _showAssignedMembersDialog(tasks[index]['assignedMemberId']),
+  trailing: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      IconButton(
+        icon: const Icon(Icons.edit),
+        onPressed: () => _updateTask(
+          tasks[index]['id'],
+          tasks[index]['name'],
+          tasks[index]['description'],
+          tasks[index]['startDate'],
+          tasks[index]['endDate'],
+          tasks[index]['status'],
+        ),
+      ),
+      IconButton(
+        icon: const Icon(Icons.delete, color: Colors.white),
+        onPressed: () => _showDeleteTaskWarning(tasks[index]['id']),
+      ),
+    ],
+  ),
+)
+```
+
+## Best Practices
+
+1. **Required Fields**: Always require a task name before saving
+2. **Date Validation**: Ensure end date is after start date
+3. **Member Assignment**: Verify assigned members exist in the team
+4. **Status Tracking**: Use consistent status values across the app
+5. **Error Handling**: Implement comprehensive error handling for all operations
+6. **Real-time Sync**: Use Firestore streams for automatic updates
+7. **Confirmation Dialogs**: Always confirm destructive actions like deletion
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Team Management" icon="users" href="/features/team-management">
+    Learn how tasks are organized within teams
+  </Card>
+  <Card title="User Profiles" icon="user" href="/features/user-profiles">
+    Understand how user assignments work
+  </Card>
+</CardGroup>

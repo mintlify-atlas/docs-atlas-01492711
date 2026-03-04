@@ -1,0 +1,439 @@
+---
+title: 'AuthService'
+description: 'Authentication service for user registration, login, and profile management'
+---
+
+## Overview
+
+The `AuthService` class provides comprehensive authentication functionality for the Flutter application, including email/password authentication, Google Sign-In, user profile management, and user search capabilities.
+
+**Location**: `lib/services/auth_service.dart`
+
+### Dependencies
+
+- `firebase_auth` - Firebase Authentication
+- `cloud_firestore` - Firestore database
+- `firebase_storage` - Firebase Storage for profile images
+- `google_sign_in` - Google Sign-In integration
+- `logger` - Logging functionality
+
+---
+
+## Authentication Methods
+
+### registerWithEmailAndPassword
+
+Registers a new user with email and password credentials.
+
+```dart
+Future<User?> registerWithEmailAndPassword(String email, String password)
+```
+
+<ParamField path="email" type="String" required>
+  The user's email address
+</ParamField>
+
+<ParamField path="password" type="String" required>
+  The user's password
+</ParamField>
+
+<ResponseField name="User?" type="Future<User?>">
+  Returns a `User` object if registration is successful, or `null` if an error occurs
+</ResponseField>
+
+#### Example
+
+```dart
+final authService = AuthService();
+final user = await authService.registerWithEmailAndPassword(
+  'user@example.com',
+  'securePassword123'
+);
+
+if (user != null) {
+  print('Registration successful: ${user.uid}');
+} else {
+  print('Registration failed');
+}
+```
+
+#### Error Handling
+
+- Returns `null` if registration fails
+- Errors are logged using the Logger instance
+- Common errors include: invalid email format, weak password, email already in use
+
+---
+
+### signInWithEmailAndPassword
+
+Authenticates an existing user with email and password.
+
+```dart
+Future<User?> signInWithEmailAndPassword(String email, String password)
+```
+
+<ParamField path="email" type="String" required>
+  The user's email address
+</ParamField>
+
+<ParamField path="password" type="String" required>
+  The user's password
+</ParamField>
+
+<ResponseField name="User?" type="Future<User?>">
+  Returns a `User` object if sign-in is successful, or `null` if an error occurs
+</ResponseField>
+
+#### Example
+
+```dart
+final authService = AuthService();
+final user = await authService.signInWithEmailAndPassword(
+  'user@example.com',
+  'securePassword123'
+);
+
+if (user != null) {
+  print('Sign-in successful: ${user.uid}');
+} else {
+  print('Invalid credentials');
+}
+```
+
+#### Error Handling
+
+- Returns `null` if authentication fails
+- Errors are logged automatically
+- Common errors include: user not found, wrong password, too many requests
+
+---
+
+### signInWithGoogle
+
+Authenticates a user using Google Sign-In.
+
+```dart
+Future<User?> signInWithGoogle()
+```
+
+<ResponseField name="User?" type="Future<User?>">
+  Returns a `User` object if sign-in is successful, or `null` if the user cancels or an error occurs
+</ResponseField>
+
+#### Behavior
+
+- Opens Google Sign-In dialog
+- Automatically creates user profile in Firestore if it doesn't exist
+- Uses `displayName` from Google account as the user's name
+- Returns `null` if user cancels the sign-in dialog
+
+#### Example
+
+```dart
+final authService = AuthService();
+final user = await authService.signInWithGoogle();
+
+if (user != null) {
+  print('Google sign-in successful: ${user.displayName}');
+} else {
+  print('Sign-in cancelled or failed');
+}
+```
+
+#### Firestore Integration
+
+<Expandable title="Automatic Profile Creation">
+  When a user signs in with Google for the first time:
+  1. Checks if user profile exists in Firestore
+  2. If not found, calls `saveUserProfile()` automatically
+  3. Uses Google account's display name or 'Sin nombre' as default
+  4. Profile image is not uploaded (set to `null`)
+</Expandable>
+
+---
+
+### signOut
+
+Signs out the current user from both Firebase Auth and Google Sign-In.
+
+```dart
+Future<void> signOut()
+```
+
+#### Example
+
+```dart
+final authService = AuthService();
+await authService.signOut();
+print('User signed out successfully');
+```
+
+---
+
+## Profile Management
+
+### saveUserProfile
+
+Saves or updates user profile information in Firestore, including optional profile image upload to Firebase Storage.
+
+```dart
+Future<void> saveUserProfile(
+  String uid,
+  String name,
+  String surname,
+  File? profileImage
+)
+```
+
+<ParamField path="uid" type="String" required>
+  The user's unique identifier from Firebase Auth
+</ParamField>
+
+<ParamField path="name" type="String" required>
+  The user's first name
+</ParamField>
+
+<ParamField path="surname" type="String" required>
+  The user's surname/last name
+</ParamField>
+
+<ParamField path="profileImage" type="File?">
+  Optional profile image file. If provided, it will be uploaded to Firebase Storage at `profileImages/{uid}.jpg`
+</ParamField>
+
+#### Firestore Document Structure
+
+```json
+{
+  "name": "John",
+  "surname": "Doe",
+  "photoUrl": "https://firebasestorage.googleapis.com/..."
+}
+```
+
+#### Example
+
+```dart
+import 'dart:io';
+
+final authService = AuthService();
+final user = authService.currentUser;
+
+if (user != null) {
+  final imageFile = File('/path/to/profile.jpg');
+  await authService.saveUserProfile(
+    user.uid,
+    'John',
+    'Doe',
+    imageFile
+  );
+}
+```
+
+#### Storage Behavior
+
+<Expandable title="Image Upload Process">
+  1. If `profileImage` is not null:
+     - Uploads image to Firebase Storage at path `profileImages/{uid}.jpg`
+     - Retrieves download URL
+     - Stores URL in Firestore
+  2. If `profileImage` is null:
+     - `photoUrl` field is set to `null` in Firestore
+</Expandable>
+
+---
+
+### getUserProfile
+
+Retrieves user profile data from Firestore.
+
+```dart
+Future<Map<String, dynamic>?> getUserProfile(String uid)
+```
+
+<ParamField path="uid" type="String" required>
+  The user's unique identifier
+</ParamField>
+
+<ResponseField name="Map<String, dynamic>?" type="Future<Map<String, dynamic>?>">
+  Returns a map containing user profile data, or `null` if the profile doesn't exist or an error occurs
+</ResponseField>
+
+#### Example
+
+```dart
+final authService = AuthService();
+final profile = await authService.getUserProfile('user_uid_123');
+
+if (profile != null) {
+  print('Name: ${profile['name']}');
+  print('Surname: ${profile['surname']}');
+  print('Photo URL: ${profile['photoUrl']}');
+}
+```
+
+---
+
+## User Search
+
+### searchUsersByName
+
+Searches for users by name using Firestore queries.
+
+```dart
+Future<List<UserProfile>> searchUsersByName(String name)
+```
+
+<ParamField path="name" type="String" required>
+  The name or partial name to search for
+</ParamField>
+
+<ResponseField name="List<UserProfile>" type="Future<List<UserProfile>>">
+  Returns a list of `UserProfile` objects matching the search query. Returns empty list if no matches found or error occurs.
+</ResponseField>
+
+#### Search Behavior
+
+- Uses Firestore range queries with `\uf8ff` character for prefix matching
+- Searches the `name` field in the users collection
+- Case-sensitive search
+
+#### Example
+
+```dart
+final authService = AuthService();
+final users = await authService.searchUsersByName('John');
+
+for (var user in users) {
+  print('Found user: ${user.name}');
+}
+```
+
+---
+
+### searchUsersByNameOrEmail
+
+Searches for users by either name or email address.
+
+```dart
+Future<List<UserProfile>> searchUsersByNameOrEmail(String query)
+```
+
+<ParamField path="query" type="String" required>
+  The search query to match against name or email fields
+</ParamField>
+
+<ResponseField name="List<UserProfile>" type="Future<List<UserProfile>>">
+  Returns a combined list of `UserProfile` objects matching either name or email. Returns empty list if no matches found or error occurs.
+</ResponseField>
+
+#### Search Strategy
+
+<Expandable title="Dual Query Approach">
+  1. Executes first query against `name` field
+  2. Executes second query against `email` field
+  3. Combines both result sets
+  4. May contain duplicates if a user matches both criteria
+</Expandable>
+
+#### Example
+
+```dart
+final authService = AuthService();
+final users = await authService.searchUsersByNameOrEmail('john');
+
+print('Found ${users.length} users matching "john"');
+for (var user in users) {
+  print('${user.name} - ${user.email}');
+}
+```
+
+---
+
+## Properties
+
+### currentUser
+
+Gets the currently authenticated user.
+
+```dart
+User? get currentUser
+```
+
+<ResponseField name="User?" type="User?">
+  Returns the current `User` object if authenticated, or `null` if no user is signed in
+</ResponseField>
+
+#### Example
+
+```dart
+final authService = AuthService();
+final user = authService.currentUser;
+
+if (user != null) {
+  print('Current user: ${user.email}');
+} else {
+  print('No user signed in');
+}
+```
+
+---
+
+### displayName
+
+Gets the display name of the current user.
+
+```dart
+String? get displayName
+```
+
+<ResponseField name="String?" type="String?">
+  Returns the display name, or `null` if not set or no user is signed in
+</ResponseField>
+
+---
+
+### photoURL
+
+Gets the photo URL of the current user.
+
+```dart
+String? get photoURL
+```
+
+<ResponseField name="String?" type="String?">
+  Returns the photo URL, or `null` if not set or no user is signed in
+</ResponseField>
+
+---
+
+## Error Handling Best Practices
+
+All methods in `AuthService` handle errors gracefully:
+
+- Methods return `null` or empty lists on failure
+- Errors are automatically logged using Logger
+- No exceptions are thrown to the caller
+- Always check return values before proceeding
+
+#### Example Error Handling
+
+```dart
+final authService = AuthService();
+
+// Check for null returns
+final user = await authService.signInWithEmailAndPassword(
+  email,
+  password
+);
+
+if (user == null) {
+  // Handle authentication failure
+  showErrorDialog('Invalid credentials');
+  return;
+}
+
+// Proceed with authenticated user
+navigateToHome();
+```

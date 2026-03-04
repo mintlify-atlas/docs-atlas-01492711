@@ -1,0 +1,95 @@
+---
+title: Introduction
+description: Welcome to Trello App - A collaborative task management solution built with Flutter and Firebase
+---
+
+## What is Trello App?
+
+Trello App (Sunshine Note) is a collaborative task management application that helps teams organize, track, and manage their projects efficiently. Built with Flutter and Firebase, it provides a seamless cross-platform experience for managing tasks, teams, and collaborative workflows.
+
+## Key Features
+
+### Authentication & User Management
+- **Multiple Sign-In Options**: Support for email/password and Google Sign-In
+- **User Profiles**: Customizable profiles with photo uploads and personal information
+- **Secure Authentication**: Firebase Authentication ensures secure user management
+
+### Team Collaboration
+- **Create Teams**: Organize your work by creating teams for different projects
+- **Team Members**: Search and add members to your teams by name or email
+- **Color-Coded Teams**: Customize teams with over 20 color options for easy visual identification
+- **Member Management**: View all team members and their roles
+
+### Task Management
+- **Create Tasks**: Add tasks with detailed descriptions, dates, and assignments
+- **Task Status Tracking**: Track progress with three states - Not Started, In Development, and Completed
+- **Date Management**: Set start and end dates for each task
+- **Assign Responsibilities**: Assign tasks to specific team members
+- **Real-time Updates**: All changes sync instantly across devices
+
+### Profile Management
+- **Edit Profile**: Update your name, surname, and profile picture
+- **Profile Pictures**: Upload custom profile images stored in Firebase Storage
+- **User Search**: Find other users to add to your teams
+
+## Target Audience
+
+Trello App is designed for:
+
+- **Small to Medium Teams**: Perfect for teams that need lightweight project management
+- **Remote Teams**: Cloud-based architecture enables collaboration from anywhere
+- **Project Managers**: Track multiple projects and team progress in one place
+- **Development Teams**: Manage sprints, features, and bug tracking
+- **Students & Educators**: Coordinate group projects and assignments
+
+## Technology Stack
+
+### Frontend
+- **Flutter**: Cross-platform framework for iOS, Android, web, and desktop
+- **Material Design**: Modern, intuitive UI following Material Design guidelines
+- **Dart**: Programming language optimized for UI development
+
+### Backend & Services
+- **Firebase Core**: Foundation for Firebase services
+- **Firebase Authentication**: User authentication and management
+- **Cloud Firestore**: NoSQL database for real-time data synchronization
+- **Firebase Storage**: Cloud storage for user profile images
+- **Google Sign-In**: OAuth integration for Google accounts
+
+### Additional Libraries
+- **logger**: Comprehensive logging for debugging and monitoring
+- **image_picker**: Native image selection for profile pictures
+- **intl**: Internationalization and date formatting
+- **flutter_local_notifications**: Push notifications for task updates
+
+<Note>
+Trello App requires Flutter SDK 3.5.0 or higher and an active Firebase project for backend services.
+</Note>
+
+## Architecture Overview
+
+The application follows a clean architecture pattern:
+
+```
+lib/
+├── models/           # Data models (UserProfile, etc.)
+├── services/         # Business logic (AuthService, TeamService, TaskService)
+└── ui/
+    └── screens/      # UI screens and widgets
+```
+
+### Core Services
+
+- **AuthService**: Handles user authentication, registration, and profile management
+- **TeamService**: Manages team creation, updates, and member management
+- **TaskService**: Coordinates task CRUD operations and assignments
+
+## Getting Started
+
+Ready to start using Trello App? Check out our [Quickstart Guide](/quickstart) for step-by-step instructions on setting up the application.
+
+For detailed installation instructions and platform-specific setup, see the [Installation Guide](/installation).
+
+<Tip>
+Make sure you have a Firebase account ready before starting. You'll need to create a Firebase project and configure it with your Flutter app.
+</Tip>

@@ -1,80 +1,243 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get up and running with Trello App in minutes
 ---
 
-## Get started in three steps
+## Prerequisites
 
-Get your documentation site running locally and make your first customization.
+Before you begin, ensure you have the following installed and configured:
 
-### Step 1: Set up your local environment
+- **Flutter SDK** (3.5.0 or higher)
+- **Firebase Account** with a new or existing project
+- **Git** for cloning the repository
+- **IDE** (VS Code, Android Studio, or IntelliJ IDEA)
+- **Platform-specific requirements**:
+  - **Android**: Android SDK and Android Studio
+  - **iOS**: Xcode 12+ (macOS only)
+  - **Web**: Chrome browser
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Warning>
+Make sure your Flutter installation is up to date by running `flutter doctor` to check for any issues.
+</Warning>
 
-### Step 2: Deploy your changes
+## Setup Instructions
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+<Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+### Clone the Repository
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+Clone the Trello App repository to your local machine:
 
-### Step 3: Go live
+```bash
+git clone <repository-url>
+cd app_tareas
+```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+### Configure Firebase
 
-## Next steps
+The project requires Firebase configuration for authentication and database services.
 
-Now that you have your docs running, explore these key features:
+#### 1. Create a Firebase Project
 
-<CardGroup cols={2}>
+1. Go to the [Firebase Console](https://console.firebase.google.com/)
+2. Create a new project or select an existing one
+3. Enable the following services:
+   - **Authentication** (Email/Password and Google Sign-In)
+   - **Cloud Firestore**
+   - **Storage**
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+#### 2. Add Firebase to Your App
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+**For Android:**
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+1. In Firebase Console, add an Android app
+2. Download `google-services.json`
+3. Place it in `android/app/google-services.json`
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+**For Web:**
 
-</CardGroup>
+1. In Firebase Console, add a Web app
+2. Copy the configuration
+3. Update `lib/firebase_options.dart` with your credentials
+
+The project uses FlutterFire CLI configuration. Your `firebase.json` should look like:
+
+```json
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "your-project-id",
+          "appId": "your-app-id",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "your-project-id",
+          "configurations": {
+            "android": "your-android-app-id",
+            "web": "your-web-app-id"
+          }
+        }
+      }
+    }
+  }
+}
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+Replace `your-project-id`, `your-app-id`, etc. with your actual Firebase project values.
+</Note>
+
+### Install Dependencies
+
+Install all required Flutter packages:
+
+```bash
+flutter pub get
+```
+
+This will install the following key dependencies:
+
+- `firebase_core` - Firebase initialization
+- `firebase_auth` - Authentication
+- `cloud_firestore` - Database
+- `firebase_storage` - File storage
+- `google_sign_in` - Google authentication
+- `image_picker` - Image selection
+- `logger` - Logging
+- `intl` - Date formatting
+
+### Configure Google Sign-In
+
+For Google Sign-In to work, you need to configure OAuth:
+
+**Android:**
+- The SHA-1 fingerprint is automatically configured through `google-services.json`
+
+**iOS:**
+- Add the `GoogleService-Info.plist` to `ios/Runner/`
+- Update `ios/Runner/Info.plist` with the reversed client ID
+
+**Web:**
+- Configure authorized domains in Firebase Console
+
+### Run the Application
+
+Start the app on your preferred platform:
+
+```bash
+# For Android/iOS (with device connected or emulator running)
+flutter run
+
+# For Web
+flutter run -d chrome
+
+# For specific device
+flutter devices
+flutter run -d <device-id>
+```
+
+The app will initialize Firebase on startup:
+
+```dart
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(const MyApp());
+}
+```
+
+### Create Your First Account
+
+Once the app launches, you'll see the login screen.
+
+1. Click **"¿No tienes una cuenta? Regístrate"** to register
+2. Fill in your details:
+   - Email address
+   - Password
+   - Name and surname
+   - Profile picture (optional)
+3. Accept the Terms and Conditions
+4. Click **"Registrar"**
+
+Alternatively, use **"Iniciar sesión con Google"** for quick Google Sign-In.
+
+<Tip>
+The app includes built-in authentication validation. Make sure to use a valid email format and a secure password.
+</Tip>
+
+### Create Your First Team
+
+After logging in, you'll be on the home screen (TaskScreen).
+
+1. Click the **"+"** button to add a new team
+2. Enter team details:
+   - **Team Name**: Give your team a descriptive name
+   - **Project Description**: Describe the team's purpose
+   - **Add Members**: Search for users by name to add to the team
+   - **Choose Color**: Select a color to identify the team
+3. Click **"Agregar"** to create the team
+
+```dart
+// Team creation example from the code
+final teamId = await _teamService.createTeam(
+  _teamName,
+  _projectDescription,
+  _selectedColor,
+  allMembers,
+);
+```
+
+### Add Your First Task
+
+With a team created, you can now add tasks:
+
+1. Click on your team to open the team view
+2. Click the **"+"** floating action button (black circle with plus icon)
+3. Fill in task details:
+   - **Task Name**: Brief title for the task
+   - **Description**: Detailed description of what needs to be done
+   - **Start Date**: When the task should begin
+   - **End Date**: Task deadline
+   - **Assign Member**: Choose who's responsible for the task
+   - **Status**: Set initial status (Not Started, In Development, Completed)
+4. Click **"Agregar"** to create the task
+
+Tasks are stored in Firestore and sync in real-time:
+
+```dart
+await _firestore.collection('tasks').add({
+  'name': taskName,
+  'description': description,
+  'teamId': teamId,
+  'responsibleId': userId,
+  'startDate': startDate,
+  'endDate': endDate,
+  'status': 'No Iniciado',
+  'createdAt': FieldValue.serverTimestamp(),
+});
+```
+
+</Steps>
+
+## What's Next?
+
+Congratulations! You've successfully set up Trello App and created your first team and task.
+
+### Explore More Features
+
+- **Edit Profile**: Update your profile information and picture
+- **Manage Tasks**: Update task status, edit details, or delete completed tasks
+- **Add Team Members**: Grow your teams by inviting more collaborators
+- **Notifications**: Stay updated with task changes and assignments
+
+### Troubleshooting
+
+If you encounter issues during setup, check out our [Installation Guide](/installation) for detailed troubleshooting steps.
+
+<Note>
+All data is stored securely in Firebase. Make sure your Firebase Security Rules are properly configured for production use.
 </Note>

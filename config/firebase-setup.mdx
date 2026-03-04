@@ -1,0 +1,446 @@
+---
+title: 'Firebase Setup'
+description: 'Complete guide to setting up Firebase for your Flutter task management app'
+---
+
+## Overview
+
+This Flutter app uses Firebase for authentication, data storage, and file uploads. The app is configured to support Android and Web platforms, with Firebase services including Authentication, Firestore, and Storage.
+
+**Project Details:**
+- Project ID: `aplicacion-trello`
+- Storage Bucket: `aplicacion-trello.appspot.com`
+- Package Name: `com.example.app_tareas`
+
+## Firebase Services Used
+
+The application integrates the following Firebase services:
+
+- **Firebase Authentication** - Email/password and Google Sign-In
+- **Cloud Firestore** - User profiles, tasks, and real-time data
+- **Firebase Storage** - Profile image uploads
+- **Firebase Core** - Platform initialization
+
+<Warning>
+  Never commit your `google-services.json` or `GoogleService-Info.plist` files to public repositories. These files contain sensitive API keys and configuration data.
+</Warning>
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- Flutter SDK (3.5.0 or higher)
+- A Firebase account
+- Android Studio (for Android development)
+- Xcode (for iOS development, macOS only)
+
+## Creating a Firebase Project
+
+<Steps>
+  <Step title="Create Firebase Project">
+    1. Go to the [Firebase Console](https://console.firebase.google.com/)
+    2. Click "Add project"
+    3. Enter project name (e.g., `aplicacion-trello`)
+    4. Disable Google Analytics (optional)
+    5. Click "Create project"
+  </Step>
+
+  <Step title="Enable Authentication Methods">
+    1. In Firebase Console, navigate to **Authentication** > **Sign-in method**
+    2. Enable **Email/Password** provider
+    3. Enable **Google** provider
+    4. Configure OAuth consent screen (required for Google Sign-In)
+  </Step>
+
+  <Step title="Create Firestore Database">
+    1. Navigate to **Firestore Database**
+    2. Click "Create database"
+    3. Start in **test mode** (configure security rules later)
+    4. Choose a Cloud Firestore location
+  </Step>
+
+  <Step title="Enable Firebase Storage">
+    1. Navigate to **Storage**
+    2. Click "Get started"
+    3. Start in **test mode** initially
+    4. Choose a storage location
+  </Step>
+</Steps>
+
+## Installing FlutterFire CLI
+
+The FlutterFire CLI simplifies Firebase configuration for Flutter apps.
+
+```bash
+# Install FlutterFire CLI
+dart pub global activate flutterfire_cli
+
+# Verify installation
+flutterfire --version
+```
+
+## Adding Firebase to Flutter
+
+<Steps>
+  <Step title="Add Firebase Dependencies">
+    Add the required Firebase packages to your `pubspec.yaml`:
+
+    ```yaml pubspec.yaml
+    dependencies:
+      flutter:
+        sdk: flutter
+      
+      firebase_core: any
+      firebase_auth: any
+      cloud_firestore: any
+      firebase_storage: any
+      google_sign_in: any
+      image_picker: any
+      logger: any
+    ```
+
+    Install dependencies:
+    ```bash
+    flutter pub get
+    ```
+  </Step>
+
+  <Step title="Configure Firebase with FlutterFire CLI">
+    Run the FlutterFire configuration command:
+
+    ```bash
+    flutterfire configure
+    ```
+
+    This will:
+    - Link your Flutter app to your Firebase project
+    - Generate `firebase_options.dart` with platform-specific configurations
+    - Download `google-services.json` for Android
+    - Download `GoogleService-Info.plist` for iOS (if configured)
+  </Step>
+
+  <Step title="Initialize Firebase in main.dart">
+    Update your `main.dart` to initialize Firebase:
+
+    ```dart lib/main.dart
+    import 'package:flutter/material.dart';
+    import 'package:firebase_core/firebase_core.dart';
+    import 'firebase_options.dart';
+
+    void main() async {
+      WidgetsFlutterBinding.ensureInitialized();
+      
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      
+      runApp(const MyApp());
+    }
+    ```
+  </Step>
+</Steps>
+
+## Platform-Specific Configuration
+
+### Android Configuration
+
+<Steps>
+  <Step title="Add Google Services Plugin">
+    Update `android/app/build.gradle`:
+
+    ```gradle android/app/build.gradle
+    plugins {
+        id 'com.android.application'
+        id 'kotlin-android'
+        id 'com.google.gms.google-services'  // Add this line
+        id 'dev.flutter.flutter-gradle-plugin'
+    }
+    ```
+  </Step>
+
+  <Step title="Configure Build Settings">
+    Ensure minimum SDK version is set:
+
+    ```gradle android/app/build.gradle
+    android {
+        namespace 'com.example.app_tareas'
+        compileSdkVersion flutter.compileSdkVersion
+        
+        defaultConfig {
+            applicationId 'com.example.app_tareas'
+            minSdkVersion 23  // Firebase requires minimum SDK 23
+            targetSdkVersion flutter.targetSdkVersion
+            versionCode flutter.versionCode
+            versionName flutter.versionName
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Add Project-Level Dependencies">
+    Update `android/build.gradle`:
+
+    ```gradle android/build.gradle
+    buildscript {
+        repositories {
+            google()
+            mavenCentral()
+        }
+        dependencies {
+            classpath 'com.google.gms:google-services:4.3.15'
+        }
+    }
+
+    allprojects {
+        repositories {
+            google()
+            mavenCentral()
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Verify google-services.json">
+    Ensure `google-services.json` is located at:
+    ```
+    android/app/google-services.json
+    ```
+
+    Key configuration values:
+    ```json
+    {
+      "project_info": {
+        "project_number": "848491517392",
+        "project_id": "aplicacion-trello",
+        "storage_bucket": "aplicacion-trello.appspot.com"
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+### Web Configuration
+
+<Steps>
+  <Step title="Update index.html">
+    Add Firebase SDK scripts to `web/index.html` before `</body>`:
+
+    ```html web/index.html
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-storage.js"></script>
+    ```
+  </Step>
+
+  <Step title="Configure Web Options">
+    The `firebase_options.dart` contains web configuration:
+
+    ```dart lib/firebase_options.dart
+    static const FirebaseOptions web = FirebaseOptions(
+      apiKey: 'AIzaSyBu-WtuY4f0gfE0r7Z6OKpGGWEEqm2f6og',
+      appId: '1:848491517392:web:21c83f8b3db88a979355d5',
+      messagingSenderId: '848491517392',
+      projectId: 'aplicacion-trello',
+      authDomain: 'aplicacion-trello.firebaseapp.com',
+      storageBucket: 'aplicacion-trello.appspot.com',
+    );
+    ```
+  </Step>
+</Steps>
+
+### iOS Configuration
+
+<Info>
+  iOS configuration is not currently set up in this project. To add iOS support:
+</Info>
+
+<Steps>
+  <Step title="Run FlutterFire Configure for iOS">
+    ```bash
+    flutterfire configure --platforms=ios
+    ```
+  </Step>
+
+  <Step title="Add GoogleService-Info.plist">
+    Place the downloaded `GoogleService-Info.plist` in `ios/Runner/`
+  </Step>
+
+  <Step title="Update firebase_options.dart">
+    The FlutterFire CLI will automatically add iOS configuration
+  </Step>
+</Steps>
+
+## Firebase Configuration File
+
+The `firebase.json` file in your project root contains build configurations:
+
+```json firebase.json
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "aplicacion-trello",
+          "appId": "1:848491517392:android:fcab7991a286050a9355d5",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "aplicacion-trello",
+          "configurations": {
+            "android": "1:848491517392:android:fcab7991a286050a9355d5",
+            "web": "1:848491517392:web:21c83f8b3db88a979355d5"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Security Rules
+
+### Firestore Security Rules
+
+Configure Firestore security rules in the Firebase Console:
+
+```javascript firestore.rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Users can write their own profile
+      allow write: if request.auth != null && request.auth.uid == userId;
+      // Allow search functionality (read only)
+      allow read: if request.auth != null;
+    }
+    
+    // Tasks collection
+    match /tasks/{taskId} {
+      // Only authenticated users can read/write tasks
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+<Warning>
+  Never use test mode rules in production. Always restrict access based on authentication and data ownership.
+</Warning>
+
+### Firebase Storage Rules
+
+Configure Storage security rules:
+
+```javascript storage.rules
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Profile images
+    match /profileImages/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    match /profile_images/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024  // 5MB limit
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
+```
+
+## Environment Setup
+
+<CodeGroup>
+
+```bash Development
+# Run in debug mode
+flutter run
+
+# Run on specific device
+flutter run -d chrome  # Web
+flutter run -d <device-id>  # Android/iOS
+```
+
+```bash Production Build
+# Android APK
+flutter build apk --release
+
+# Android App Bundle
+flutter build appbundle --release
+
+# Web
+flutter build web --release
+```
+
+```bash Testing
+# Run tests
+flutter test
+
+# Check for issues
+flutter analyze
+```
+
+</CodeGroup>
+
+## Verifying Installation
+
+Test Firebase connectivity:
+
+```dart test_firebase.dart
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('✅ Firebase initialized successfully!');
+  } catch (e) {
+    print('❌ Firebase initialization failed: $e');
+  }
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="com.google.gms.google-services plugin not found">
+    Ensure you've added the Google Services classpath in `android/build.gradle`:
+    ```gradle
+    classpath 'com.google.gms:google-services:4.3.15'
+    ```
+  </Accordion>
+
+  <Accordion title="MissingPluginException on Android">
+    1. Run `flutter clean`
+    2. Delete `build` folder
+    3. Run `flutter pub get`
+    4. Rebuild the app
+  </Accordion>
+
+  <Accordion title="Firebase initialization fails on web">
+    Check that Firebase SDK scripts are properly loaded in `web/index.html` and configuration in `firebase_options.dart` is correct.
+  </Accordion>
+
+  <Accordion title="DefaultFirebaseOptions not configured for iOS">
+    Run `flutterfire configure --platforms=ios` to add iOS support.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+- [Configure Google Sign-In](/config/google-signin)
+- [Set up Firebase Storage](/config/storage)
+- [Implement Authentication](lib/services/auth_service.dart:9)

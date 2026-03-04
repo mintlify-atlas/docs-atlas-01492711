@@ -1,0 +1,390 @@
+---
+title: 'TeamService'
+description: 'Team management service for creating, updating, and managing teams'
+---
+
+## Overview
+
+The `TeamService` class provides functionality for managing teams in the application, including team creation, retrieval, updates, and deletion. Teams are stored in Firestore and associated with the user who created them.
+
+**Location**: `lib/services/task_service.dart`
+
+### Dependencies
+
+- `cloud_firestore` - Firestore database
+- `firebase_auth` - Firebase Authentication for user context
+- `logger` - Logging functionality
+
+---
+
+## Methods
+
+### createTeam
+
+Creates a new team and stores it in Firestore.
+
+```dart
+Future<void> createTeam(String teamName)
+```
+
+<ParamField path="teamName" type="String" required>
+  The name of the team to create
+</ParamField>
+
+<ResponseField name="void" type="Future<void>">
+  Returns a Future that completes when the team is created
+</ResponseField>
+
+#### Firestore Document Structure
+
+When a team is created, the following document is stored in the `teams` collection:
+
+```json
+{
+  "name": "Team Name",
+  "userId": "uid_of_creator",
+  "createdAt": Timestamp
+}
+```
+
+<ParamField path="name" type="String">
+  The name of the team
+</ParamField>
+
+<ParamField path="userId" type="String">
+  The Firebase Auth UID of the user who created the team
+</ParamField>
+
+<ParamField path="createdAt" type="Timestamp">
+  Server-generated timestamp of when the team was created
+</ParamField>
+
+#### Example
+
+```dart
+final teamService = TeamService();
+await teamService.createTeam('Development Team');
+print('Team created successfully');
+```
+
+#### Behavior
+
+- Requires an authenticated user (checks `FirebaseAuth.currentUser`)
+- If no user is authenticated, the operation silently fails
+- Uses Firestore server timestamp for `createdAt`
+- Errors are logged but not thrown
+
+---
+
+### getUserTeams
+
+Retrieves a real-time stream of teams created by the current user.
+
+```dart
+Stream<List<Map<String, dynamic>>> getUserTeams()
+```
+
+<ResponseField name="Stream" type="Stream<List<Map<String, dynamic>>>">
+  Returns a Stream that emits lists of team documents as Maps. Returns an empty Stream if no user is authenticated or an error occurs.
+</ResponseField>
+
+#### Stream Behavior
+
+<Expandable title="Real-time Updates">
+  - Stream automatically updates when teams are added, modified, or deleted
+  - Teams are ordered by `createdAt` in descending order (newest first)
+  - Filtered to only show teams where `userId` matches current user
+  - Stream remains active until disposed
+</Expandable>
+
+#### Example
+
+```dart
+final teamService = TeamService();
+
+StreamBuilder<List<Map<String, dynamic>>>(
+  stream: teamService.getUserTeams(),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) {
+      return CircularProgressIndicator();
+    }
+    
+    final teams = snapshot.data!;
+    return ListView.builder(
+      itemCount: teams.length,
+      itemBuilder: (context, index) {
+        final team = teams[index];
+        return ListTile(
+          title: Text(team['name']),
+          subtitle: Text('Created: ${team['createdAt']}'),
+        );
+      },
+    );
+  },
+)
+```
+
+#### Query Details
+
+- **Collection**: `teams`
+- **Filter**: `userId == currentUser.uid`
+- **Order**: `createdAt` descending
+- **Type**: Real-time snapshot stream
+
+---
+
+### updateTeam
+
+Updates the name of an existing team.
+
+```dart
+Future<void> updateTeam(String teamId, String newTeamName)
+```
+
+<ParamField path="teamId" type="String" required>
+  The Firestore document ID of the team to update
+</ParamField>
+
+<ParamField path="newTeamName" type="String" required>
+  The new name for the team
+</ParamField>
+
+<ResponseField name="void" type="Future<void>">
+  Returns a Future that completes when the update is successful
+</ResponseField>
+
+#### Example
+
+```dart
+final teamService = TeamService();
+await teamService.updateTeam(
+  'team_doc_id_123',
+  'Updated Team Name'
+);
+print('Team name updated');
+```
+
+#### Notes
+
+- Only updates the `name` field
+- Does not verify team ownership before updating
+- Errors are logged but not thrown
+- If team doesn't exist, Firestore operation completes without error
+
+---
+
+### deleteTeam
+
+Deletes a team from Firestore.
+
+```dart
+Future<void> deleteTeam(String teamId)
+```
+
+<ParamField path="teamId" type="String" required>
+  The Firestore document ID of the team to delete
+</ParamField>
+
+<ResponseField name="void" type="Future<void>">
+  Returns a Future that completes when the deletion is successful
+</ResponseField>
+
+#### Example
+
+```dart
+final teamService = TeamService();
+await teamService.deleteTeam('team_doc_id_123');
+print('Team deleted successfully');
+```
+
+#### Important Considerations
+
+<Expandable title="Deletion Behavior">
+  - Permanently deletes the team document
+  - Does not verify team ownership before deletion
+  - Does not cascade delete (related tasks/data may remain)
+  - If team doesn't exist, operation completes without error
+  - Errors are logged but not thrown
+</Expandable>
+
+---
+
+## Complete Usage Example
+
+Here's a complete example demonstrating team lifecycle management:
+
+```dart
+import 'package:app_tareas/services/team_service.dart';
+import 'package:flutter/material.dart';
+
+class TeamManagementExample extends StatefulWidget {
+  @override
+  _TeamManagementExampleState createState() => _TeamManagementExampleState();
+}
+
+class _TeamManagementExampleState extends State<TeamManagementExample> {
+  final TeamService _teamService = TeamService();
+  final TextEditingController _teamNameController = TextEditingController();
+
+  Future<void> _createTeam() async {
+    final teamName = _teamNameController.text.trim();
+    if (teamName.isNotEmpty) {
+      await _teamService.createTeam(teamName);
+      _teamNameController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Team created')),
+      );
+    }
+  }
+
+  Future<void> _updateTeam(String teamId, String newName) async {
+    await _teamService.updateTeam(teamId, newName);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Team updated')),
+    );
+  }
+
+  Future<void> _deleteTeam(String teamId) async {
+    await _teamService.deleteTeam(teamId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Team deleted')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Team Management')),
+      body: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _teamNameController,
+                    decoration: InputDecoration(
+                      labelText: 'Team Name',
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.add),
+                  onPressed: _createTeam,
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _teamService.getUserTeams(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                final teams = snapshot.data!;
+                if (teams.isEmpty) {
+                  return Center(child: Text('No teams yet'));
+                }
+
+                return ListView.builder(
+                  itemCount: teams.length,
+                  itemBuilder: (context, index) {
+                    final team = teams[index];
+                    return ListTile(
+                      title: Text(team['name']),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.edit),
+                            onPressed: () => _showUpdateDialog(
+                              team['id'],
+                              team['name'],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.delete),
+                            onPressed: () => _deleteTeam(team['id']),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showUpdateDialog(String teamId, String currentName) {
+    final controller = TextEditingController(text: currentName);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Update Team Name'),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(labelText: 'New Team Name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              _updateTeam(teamId, controller.text);
+              Navigator.pop(context);
+            },
+            child: Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+---
+
+## Error Handling
+
+All methods in `TeamService` follow these error handling patterns:
+
+- Errors are logged using the Logger instance
+- No exceptions are thrown to callers
+- Operations fail silently if user is not authenticated
+- Firestore errors are caught and logged
+
+```dart
+// Methods handle errors internally
+await teamService.createTeam('My Team');
+// No try-catch needed - errors are logged internally
+```
+
+---
+
+## Authentication Requirements
+
+All operations require an authenticated user:
+
+- `createTeam`: Requires authenticated user to set `userId`
+- `getUserTeams`: Requires authenticated user to filter teams
+- `updateTeam`: No explicit auth check (operates on document ID)
+- `deleteTeam`: No explicit auth check (operates on document ID)
+
+**Security Note**: While `updateTeam` and `deleteTeam` don't check authentication in the code, you should implement Firestore Security Rules to prevent unauthorized access:
+
+```javascript
+// Firestore Security Rules example
+match /teams/{teamId} {
+  allow read, write: if request.auth != null && 
+    resource.data.userId == request.auth.uid;
+}
+```
