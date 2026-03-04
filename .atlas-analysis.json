@@ -1,0 +1,102 @@
+{
+  "projectType": "saas",
+  "projectName": "Trello App",
+  "projectDescription": "A collaborative task and team management application built with Flutter and Firebase for organizing work and tracking progress.",
+  "theme": "almond",
+  "primaryColor": "#3dcffc",
+  "lightColor": "#0b5b9c",
+  "darkColor": "#ffffff",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/authentication",
+              "features/team-management",
+              "features/task-management",
+              "features/user-profiles"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/creating-teams",
+              "guides/managing-tasks",
+              "guides/assigning-members",
+              "guides/notifications"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "config/firebase-setup",
+              "config/google-signin",
+              "config/storage"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Services",
+            "pages": [
+              "api/auth-service",
+              "api/team-service",
+              "api/task-service"
+            ]
+          },
+          {
+            "group": "Models",
+            "pages": [
+              "api/user-profile"
+            ]
+          },
+          {
+            "group": "Screens",
+            "pages": [
+              "api/task-screen",
+              "api/login-screen",
+              "api/add-task-screen"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "User authentication with email/password and Google Sign-In",
+    "Team creation and management with member collaboration",
+    "Task creation, assignment, and status tracking",
+    "User profile management with photo upload",
+    "Real-time Firebase Firestore integration",
+    "Task notifications and reminders",
+    "Multi-member team collaboration",
+    "Cross-platform support (iOS, Android, Web, Desktop)"
+  ],
+  "publicApiSurface": [
+    "AuthService.registerWithEmailAndPassword()",
+    "AuthService.signInWithEmailAndPassword()",
+    "AuthService.signInWithGoogle()",
+    "AuthService.saveUserProfile()",
+    "AuthService.signOut()",
+    "TeamService.createTeam()",
+    "TeamService.getUserTeams()",
+    "TeamService.updateTeam()",
+    "TeamService.deleteTeam()",
+    "UserProfile.fromFirestore()",
+    "UserProfile.toMap()"
+  ]
+}
